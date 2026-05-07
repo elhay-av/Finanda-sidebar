@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+
+<head>
+  <meta charset="UTF-8">
+  <title>סיכום חלוקת פעולות</title>
+  <style>
+    :root {
+      --primary-color: #5b6af8;
+      --primary-hover: #4a57d9;
+      --bg-color: #f7f9fc;
+      --text-main: #333333;
+      --text-secondary: #7a828e;
+      --input-bg: #e4efff;
+      --input-border: #a8c1f0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-height: 100vh;
+    }
+
+    /* ---------------- TRANSACTIONS VIEW ---------------- */
+    body>h2 {
+      color: var(--primary-color);
+      align-self: flex-start;
+      margin: 20px 0 15px 0;
+      font-size: 22px;
+      width: 100%;
+      text-align: right;
+      border-bottom: 2px solid var(--input-border);
+      padding-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .balance__item {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: right;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--input-border);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .balance__item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(91, 106, 248, 0.1);
+      border-color: var(--primary-color);
+    }
+
+    .balance__item b {
+      color: var(--text-main);
+      font-size: 16px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .balance__item div>div {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .balance__item div>div:nth-of-type(1) {
+      color: var(--primary-color);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .balance__actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .select-menu {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      background-color: var(--input-bg);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235b6af8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+      background-repeat: no-repeat;
+      background-position: left 12px top 50%;
+      background-size: 10px auto;
+      padding-left: 30px;
+    }
+
+    .select-menu:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(91, 106, 248, 0.15);
+    }
+
+    .standard-button {
+      padding: 10px 16px;
+      background-color: transparent;
+      color: var(--primary-color);
+      border: 1px solid var(--primary-color);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .standard-button:hover {
+      background-color: var(--primary-color);
+      color: #ffffff;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Transaction items will be appended here directly by Apps Script -->
+
+  <script>
+    /**
+     * Called when a transaction group is selected or a button is clicked
+     */
+    function onTransactionChange(value, amount, description, columnIndex, itemId) {
+      if (!value) return; // ignore empty select
+
+      console.log(`[Transactions] onTransactionChange called: ${value}, ${amount}, ${description}, ${columnIndex}, ${itemId}`);
+
+      const itemEl = document.getElementById(itemId);
+      if (itemEl) {
+        itemEl.style.opacity = '0.5';
+        itemEl.style.pointerEvents = 'none';
+      }
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(() => {
+            console.log('[Transactions] Successfully updated cell');
+            if (itemEl) itemEl.remove();
+          })
+          .withFailureHandler((error) => {
+            console.error('[Transactions] Error updating cell:', error);
+            alert('שגיאה בעדכון הפעולה: ' + error);
+            if (itemEl) {
+              itemEl.style.opacity = '1';
+              itemEl.style.pointerEvents = 'auto';
+              // Reset select if it was a select change
+              const select = itemEl.querySelector('select');
+              if (select) select.value = '';
+            }
+          })
+          .updateCellFromSideBar(amount, unescape(description), value, columnIndex);
+      } else {
+        console.log(`[Dev] Mocking updateCellFromSideBar(${value}, ${amount}, ${unescape(description)}, ${columnIndex}, ${itemId})`);
+        setTimeout(() => {
+          if (itemEl) itemEl.remove();
+        }, 600);
+      }
+    }
+  </script>
+</body>
+
+</html>
