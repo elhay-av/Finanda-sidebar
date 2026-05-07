@@ -678,19 +678,14 @@
         document.getElementById('loading-status').innerText = 'בודק עדכונים לתוסף...';
 
         try {
-          // Check for latest version
-          const timestamp = new Date().getTime(); // Prevent caching
-          const response = await fetch(`https://elhay-av.github.io/Finanda-sheets-extension/version.json?t=${timestamp}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data.version && data.version !== extVersion) {
-              console.log(`[Sidebar] Update available. Current: ${extVersion}, Latest: ${data.version}`);
-              document.getElementById('current-ext-version').innerText = "v" + extVersion;
-              document.getElementById('latest-ext-version').innerText = "v" + data.version;
-              showView('update-view');
-              return; // Wait for user action
-            }
+          // Check for latest version via extension to avoid CORS
+          const updateCheck = await sendToExtension('FINANDA_CHECK_UPDATE', {}, 3000);
+          if (updateCheck && updateCheck.status === 'SUCCESS' && updateCheck.version && updateCheck.version !== extVersion) {
+            console.log(`[Sidebar] Update available. Current: ${extVersion}, Latest: ${updateCheck.version}`);
+            document.getElementById('current-ext-version').innerText = "v" + extVersion;
+            document.getElementById('latest-ext-version').innerText = "v" + updateCheck.version;
+            showView('update-view');
+            return; // Wait for user action
           }
         } catch (e) {
           console.error('[Sidebar] Failed to check for extension updates:', e);
