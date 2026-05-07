@@ -32,7 +32,7 @@ function getGroups () {
   const nameColIndex = 3;
 
   return values.filter(i => i[typeColIndex] !== 'הוצאה משתנה').map((row, index) => {
-    Logger.log(`Row: ${index + 1} -> groupId: ${row[idColIndex]}, type: ${row[typeColIndex]}, name: ${row[nameColIndex]}`);
+    // Logger.log(`Row: ${index + 1} -> groupId: ${row[idColIndex]}, type: ${row[typeColIndex]}, name: ${row[nameColIndex]}`);
     return {
       name: row[nameColIndex],
       type: row[typeColIndex],

@@ -216,7 +216,7 @@ function groupByBalanceCategory (transactions, defaultGroup) {
 				}
 			})?.group;
 		}
-    console.log('PUSH', selectedGroup || defaultGroup, acc[selectedGroup || defaultGroup])
+    // console.log('PUSH', selectedGroup || defaultGroup, acc[selectedGroup || defaultGroup])
 		acc[selectedGroup || defaultGroup].push(item);
 		return acc;
 	}, getEmptyGroups());

@@ -463,17 +463,17 @@
           const reqBtn = document.getElementById("finanda-req-btn");
           const resInput = document.getElementById("finanda-res-input");
           const resBtn = document.getElementById("finanda-res-btn");
-
+          
           const handler = () => {
             let data;
             try {
               data = JSON.parse(resInput.value);
-            } catch (e) { return; }
-
+            } catch(e){return;}
+            
             if (data && data.action === action) {
               console.log(`[Sidebar] Received response from extension for action=${action}:`, data.payload);
               resBtn.removeEventListener("click", handler);
-              if (timeoutId) clearTimeout(timeoutId);
+              if(timeoutId) clearTimeout(timeoutId);
               resolve(data.payload);
             }
           };
@@ -481,7 +481,7 @@
 
           reqInput.value = JSON.stringify({ action: action, ...payload });
           reqBtn.click();
-
+          
           if (timeoutMs) {
             timeoutId = setTimeout(() => {
               resBtn.removeEventListener("click", handler);

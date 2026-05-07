@@ -32,6 +32,7 @@ function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap) {
 }
 
 function openSideBar (income, expanses, columnIndex, accountsMap) {
+  Logger.log('Open sidebar')
   var htmlOutput = HtmlService
     .createHtmlOutputFromFile('TransactionsSideBar.html')
     .setWidth(400)
@@ -51,6 +52,7 @@ function openSideBar (income, expanses, columnIndex, accountsMap) {
       htmlOutput.append(itemTemplate(item, DEFAULT_GROUPS.expanses, expansesGroups, columnIndex, accountsMap));
     });
     
+    Logger.log('sidebar html is ready')
   SpreadsheetApp.getUi().showSidebar(htmlOutput);
 }
 
@@ -118,16 +120,20 @@ async function UpdateByRange() {
   openFinandaSideBar()
 }
 
+
 function updateSheetData(income, expanses, accountsMap) {  
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const activeRange = activeSheet.getActiveRange();
   const row = activeRange.getRow();
   const columnIndex = activeRange.getColumn();
   
+  Logger.log(`[update-rows-loop] start, ${JSON.stringify(DEFAULT_GROUPS)}, ${activeRange.getNumRows()}`)
   new Array(activeRange.getNumRows()).fill(true).forEach((_, index) => {
     const rowIndex = index + row;
     const groupId = activeSheet.getRange(rowIndex, 1).getValue();
     
+    Logger.log(`[update-rows-loop] itteration, ${JSON.stringify({index, rowIndex, groupId})}`)
+
     if (groupId.toString() === DEFAULT_GROUPS.income || groupId.toString() === DEFAULT_GROUPS.expanses) {
       return;
     }
@@ -137,6 +143,8 @@ function updateSheetData(income, expanses, accountsMap) {
 
     updateCell(range, transactions);
   });
+
+  Logger.log(`[update-rows-loop] end, ${JSON.stringify({income, expanses})}`)
 
   if (income[DEFAULT_GROUPS.income]?.length || expanses[DEFAULT_GROUPS.expanses]?.length) {
     openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], columnIndex, accountsMap);

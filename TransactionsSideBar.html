@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="he">
-
 <head>
   <meta charset="UTF-8">
   <title>סיכום חלוקת פעולות</title>
@@ -30,7 +29,7 @@
     }
 
     /* ---------------- TRANSACTIONS VIEW ---------------- */
-    body>h2 {
+    body > h2 {
       color: var(--primary-color);
       align-self: flex-start;
       margin: 20px 0 15px 0;
@@ -41,7 +40,7 @@
       padding-bottom: 8px;
       font-weight: 600;
     }
-
+    
     .balance__item {
       background: #ffffff;
       border-radius: 10px;
@@ -71,13 +70,13 @@
       margin-bottom: 6px;
     }
 
-    .balance__item div>div {
+    .balance__item div > div {
       color: var(--text-secondary);
       font-size: 14px;
       margin-bottom: 4px;
     }
 
-    .balance__item div>div:nth-of-type(1) {
+    .balance__item div > div:nth-of-type(1) {
       color: var(--primary-color);
       font-weight: 600;
       font-size: 15px;
@@ -135,19 +134,18 @@
     }
   </style>
 </head>
-
 <body>
   <!-- Transaction items will be appended here directly by Apps Script -->
-
+  
   <script>
     /**
      * Called when a transaction group is selected or a button is clicked
      */
     function onTransactionChange(value, amount, description, columnIndex, itemId) {
       if (!value) return; // ignore empty select
-
+      
       console.log(`[Transactions] onTransactionChange called: ${value}, ${amount}, ${description}, ${columnIndex}, ${itemId}`);
-
+      
       const itemEl = document.getElementById(itemId);
       if (itemEl) {
         itemEl.style.opacity = '0.5';
@@ -181,5 +179,4 @@
     }
   </script>
 </body>
-
 </html>
