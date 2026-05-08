@@ -487,9 +487,9 @@
         </svg>
       </div>
 
-      <!-- URL will be inserted manually later -->
+      <!-- URL to Chrome Web Store -->
       <a
-        href="https://elhay-av.github.io/Finanda-sheets-extension/"
+        href="https://chromewebstore.google.com/detail/REPLACE_WITH_YOUR_EXTENSION_ID"
         target="_blank"
         class="btn-primary"
         style="
@@ -505,53 +505,6 @@
       >
         לאחר ההתקנה, רענן את העמוד כדי להמשיך.
       </div>
-    </div>
-
-    <!-- Update Extension View -->
-    <div id="update-view" class="view">
-      <h2>עדכון זמין לתוסף</h2>
-      <div class="mfa-subtitle">
-        גרסה חדשה של תוסף ה-Finanda זמינה להורדה. מומלץ לעדכן כדי ליהנות
-        מהשיפורים האחרונים.
-      </div>
-      <div
-        style="margin-bottom: 20px; font-size: 14px; color: var(--text-main)"
-      >
-        גרסה נוכחית:
-        <span
-          id="current-ext-version"
-          style="font-weight: bold; direction: ltr; display: inline-block"
-        ></span
-        ><br />
-        גרסה חדשה:
-        <span
-          id="latest-ext-version"
-          style="font-weight: bold; direction: ltr; display: inline-block"
-        ></span>
-      </div>
-      <a
-        href="https://elhay-av.github.io/Finanda-sheets-extension/"
-        target="_blank"
-        class="btn-primary"
-        style="
-          display: inline-block;
-          text-decoration: none;
-          box-sizing: border-box;
-          margin-bottom: 10px;
-        "
-        >לעדכון התוסף</a
-      >
-      <button
-        class="btn-primary"
-        style="
-          background-color: var(--input-bg);
-          color: var(--primary-color);
-          border: 1px solid var(--primary-color);
-        "
-        onclick="skipUpdateAndLogin()"
-      >
-        דלג כרגע
-      </button>
     </div>
 
     <script>
@@ -783,15 +736,6 @@
         }
       }
 
-      function skipUpdateAndLogin() {
-        console.log(
-          "[Sidebar] User skipped update. Attempting to fetch credentials from Apps Script...",
-        );
-        document.getElementById("loading-status").innerText = "מתחבר...";
-        showView("loading-view");
-        fetchCredentialsAndLogin();
-      }
-
       function fetchCredentialsAndLogin() {
         if (
           typeof google !== "undefined" &&
@@ -866,43 +810,10 @@
         }
 
         console.log(
-          `[Sidebar] Extension found. Version: ${extVersion}. Checking for updates...`,
+          `[Sidebar] Extension found. Version: ${extVersion}. Proceeding...`,
         );
         document.getElementById("loading-status").innerText =
-          "בודק עדכונים לתוסף...";
-
-        try {
-          // Check for latest version via extension to avoid CORS
-          const updateCheck = await sendToExtension(
-            "FINANDA_CHECK_UPDATE",
-            {},
-            3000,
-          );
-          if (
-            updateCheck &&
-            updateCheck.status === "SUCCESS" &&
-            updateCheck.version &&
-            updateCheck.version !== extVersion
-          ) {
-            console.log(
-              `[Sidebar] Update available. Current: ${extVersion}, Latest: ${updateCheck.version}`,
-            );
-            document.getElementById("current-ext-version").innerText =
-              "v" + extVersion;
-            document.getElementById("latest-ext-version").innerText =
-              "v" + updateCheck.version;
-            showView("update-view");
-            return; // Wait for user action
-          }
-        } catch (e) {
-          console.error("[Sidebar] Failed to check for extension updates:", e);
-        }
-
-        console.log(
-          "[Sidebar] Extension is up to date or update check failed. Proceeding...",
-        );
-        document.getElementById("loading-status").innerText =
-          "התוסף מעודכן, מתחבר...";
+          "מתחבר...";
 
         fetchCredentialsAndLogin();
       });
