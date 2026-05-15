@@ -77,7 +77,7 @@ function getCredentials() {
       pass: getFinandaPassword()
     };
   } catch (error) {
-    console.error("Failed to retrieve credentials:", error);
+    Logger.log("Failed to retrieve credentials:", error);
     throw new Error("Unable to retrieve Finanda credentials.");
   }
 }
