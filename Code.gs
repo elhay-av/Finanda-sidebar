@@ -1,3 +1,7 @@
+function doGet(e) {
+  return ContentService.createTextOutput("Hello World!");
+}
+
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   
