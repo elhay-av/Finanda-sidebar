@@ -165,6 +165,9 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     return;
   }
 
+  // Activate the target sheet tab
+  targetSheet.activate();
+
   const baseColumnIndex = findColumnForMonth(targetSheet, year, month);
   if (!baseColumnIndex) {
     SpreadsheetApp.getUi().alert(`שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`);
