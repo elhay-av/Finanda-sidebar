@@ -1,6 +1,6 @@
 const GROUPS_SHEET_NAME = 'settings-groups'
 
-let grouppingData = null;
+var grouppingData = null;
 
 function getGrouppingDataRange() {
   if (grouppingData) {

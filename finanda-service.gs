@@ -1,6 +1,5 @@
 const DEVICE_ID = '1253';
 
-const groupsToCategory = getGroupsMapping();
 const globalHeaders = {
   // accept: "application/json, text/plain, */*",
   // "accept-language": "en-US,en;q=0.9,he;q=0.8",
@@ -201,6 +200,7 @@ function splitByType (transactions) {
 }
 
 function groupByBalanceCategory (transactions, defaultGroup) {
+	const groupsToCategory = getGroupsMapping();
 	const res = transactions.reduce((acc, item) => {
 		let selectedGroup = groupsToCategory[item.category];
 		if (selectedGroup === 'SKIP') {
