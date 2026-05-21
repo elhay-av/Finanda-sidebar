@@ -302,6 +302,26 @@
         background-color: var(--primary-hover);
       }
 
+      .btn-secondary {
+        width: 100%;
+        max-width: 320px;
+        padding: 14px;
+        background-color: transparent;
+        color: var(--primary-color);
+        border: 2px solid var(--primary-color);
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 10px;
+      }
+
+      .btn-secondary:hover {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
       /* Dev Controls */
       .dev-controls {
         position: fixed;
@@ -345,8 +365,8 @@
       <button onclick="showView('mfa-view')">Show MFA</button>
     </div>
 
-    <!-- Loading View -->
-    <div id="loading-view" class="view active">
+    <!-- Welcome View -->
+    <div id="welcome-view" class="view active">
       <div class="coin-container">
         <div class="sparkle sparkle-1">+</div>
         <div class="sparkle sparkle-2">+</div>
@@ -422,9 +442,96 @@
 
       <h1>ברוכים הבאים!</h1>
       <div class="last-login">
-        כניסתכם האחרונה הייתה <strong>בתאריך 6.5.2026 בשעה 11:28</strong>
+        אנו מכינים את סביבת העבודה שלך...
       </div>
 
+      <div class="loading-text" id="welcome-status">
+        בודק את התקנת תוסף הדפדפן...
+      </div>
+
+      <div class="dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <!-- Loading/Progress View -->
+    <div id="loading-view" class="view">
+      <div class="coin-container">
+        <div class="sparkle sparkle-1">+</div>
+        <div class="sparkle sparkle-2">+</div>
+        <div class="sparkle sparkle-3">+</div>
+
+        <div class="limbs">
+          <svg width="150" height="150" viewBox="0 0 150 150">
+            <!-- Left Arm (Raised) -->
+            <line
+              x1="55"
+              y1="65"
+              x2="35"
+              y2="25"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Right Arm (Raised) -->
+            <line
+              x1="90"
+              y1="55"
+              x2="110"
+              y2="25"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Left Leg -->
+            <line
+              x1="65"
+              y1="95"
+              x2="65"
+              y2="135"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Left Foot -->
+            <line
+              x1="65"
+              y1="135"
+              x2="55"
+              y2="135"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Right Leg -->
+            <line
+              x1="85"
+              y1="90"
+              x2="85"
+              y2="135"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <!-- Right Foot -->
+            <line
+              x1="85"
+              y1="135"
+              x2="95"
+              y2="135"
+              stroke="#5c6a82"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+
+        <div class="coin"></div>
+      </div>
+
+      <h1 id="loading-header">מייבא נתונים...</h1>
       <div class="loading-text" id="loading-status">
         עוד כמה רגעים, הנתונים נטענים עבורך...
       </div>
@@ -500,10 +607,12 @@
         >התקן את התוסף</a
       >
 
+      <button class="btn-secondary" onclick="recheckExtension()">בדוק שוב</button>
+
       <div
         style="margin-top: 15px; font-size: 13px; color: var(--text-secondary)"
       >
-        לאחר ההתקנה, רענן את העמוד כדי להמשיך.
+        לאחר ההתקנה, לחץ על 'בדוק שוב' או רענן את העמוד כדי להמשיך.
       </div>
     </div>
 
@@ -548,10 +657,25 @@
           color: var(--primary-color);
           border: 1px solid var(--primary-color);
         "
-        onclick="skipUpdateAndLogin()"
+        onclick="skipUpdateAndShowImport()"
       >
         דלג כרגע
       </button>
+    </div>
+
+    <!-- Import Data View -->
+    <div id="import-view" class="view">
+      <div class="coin-container">
+        <svg viewBox="0 0 24 24" width="72" height="72" stroke="#31d3c6" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 40px;">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <h2>התוסף מחובר בהצלחה!</h2>
+      <div class="mfa-subtitle">
+        כל המערכות מוכנות. לחץ על הכפתור מטה כדי לייבא את נתוני פיננדה לתוך הגיליון שלך.
+      </div>
+      <button class="btn-primary" onclick="startImport()">ייבוא נתונים</button>
     </div>
 
     <script>
@@ -783,13 +907,11 @@
         }
       }
 
-      function skipUpdateAndLogin() {
+      function skipUpdateAndShowImport() {
         console.log(
-          "[Sidebar] User skipped update. Attempting to fetch credentials from Apps Script...",
+          "[Sidebar] User skipped update. Showing import view...",
         );
-        document.getElementById("loading-status").innerText = "מתחבר...";
-        showView("loading-view");
-        fetchCredentialsAndLogin();
+        showView("import-view");
       }
 
       function fetchCredentialsAndLogin() {
@@ -834,6 +956,30 @@
         }
       }
 
+      async function recheckExtension() {
+        console.log("[Sidebar] Rechecking extension installation...");
+        showView("welcome-view");
+        document.getElementById("welcome-status").innerText = "בודק שוב את התקנת התוסף...";
+        
+        const extVersion = await checkExtensionInstalled();
+        if (extVersion) {
+          console.log(`[Sidebar] Extension detected on recheck! Version: ${extVersion}`);
+          showView("import-view");
+        } else {
+          console.warn("[Sidebar] Extension still not detected on recheck.");
+          alert("תוסף עדיין לא זוהה. אנא ודא שהתקנת והפעלת את התוסף, ולאחר מכן נסה שוב.");
+          showView("install-view");
+        }
+      }
+
+      function startImport() {
+        console.log("[Sidebar] Starting import process...");
+        showView("loading-view");
+        document.getElementById("loading-header").innerText = "מייבא נתונים...";
+        document.getElementById("loading-status").innerText = "טוען פרטי גישה...";
+        fetchCredentialsAndLogin();
+      }
+
       // Initialize
       document.addEventListener("DOMContentLoaded", async () => {
         console.log("[Sidebar] DOMContentLoaded initialized");
@@ -841,10 +987,10 @@
         // Hide dev controls in production
         document.getElementById("dev-controls").style.display = "none";
 
-        // Start by showing the loading view
-        showView("loading-view");
-        document.getElementById("loading-status").innerText =
-          "בודק את התקנת התוסף...";
+        // Start by showing the welcome view
+        showView("welcome-view");
+        document.getElementById("welcome-status").innerText =
+          "בודק את התקנת תוסף הדפדפן...";
 
         console.log("[Sidebar] Pinging extension...");
         const extVersion = await checkExtensionInstalled();
@@ -855,7 +1001,7 @@
           );
           if (typeof google === "undefined" || !google.script) {
             console.warn("Running outside Apps Script. Showing dev controls.");
-            document.getElementById("loading-status").innerText =
+            document.getElementById("welcome-status").innerText =
               "סביבת פיתוח - תוסף לא אותר.";
             document.getElementById("dev-controls").style.display = "block";
             return;
@@ -899,12 +1045,9 @@
         }
 
         console.log(
-          "[Sidebar] Extension is up to date or update check failed. Proceeding...",
+          "[Sidebar] Extension is up to date or update check failed. Showing import view...",
         );
-        document.getElementById("loading-status").innerText =
-          "התוסף מעודכן, מתחבר...";
-
-        fetchCredentialsAndLogin();
+        showView("import-view");
       });
     </script>
   </body>

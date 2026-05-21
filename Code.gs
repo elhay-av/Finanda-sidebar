@@ -6,9 +6,10 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   
   ui.createMenu('משיכת מידע')
-      .addItem('פיננדה', 'UpdateByRange')
-      .addItem('סיכום הוצאות חריגות', 'showExpansesFormDialog')
+      .addItem('משיכת מידע', 'UpdateByRange')
       .addToUi();
+
+  openFinandaSideBar();
 }
 
 function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap) {
