@@ -12,11 +12,11 @@ function onOpen() {
   openFinandaSideBar();
 }
 
-function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap) {
+function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap, year) {
   const amount = Math.abs(item.Amount);
   const date = item.TotalPayments ? new Date(item.TransValueDate) : new Date(item.TransDate);
 
-  Logger.log(`item.Description: ${item.Description}, defaultGroup: ${defaultGroup}, groups: ${groups.length}, columnIndex: ${columnIndex}`)
+  Logger.log(`item.Description: ${item.Description}, defaultGroup: ${defaultGroup}, groups: ${groups.length}, columnIndex: ${columnIndex}, year: ${year}`)
   return `
       <div id="${item._id}" class="balance__item">
         <div>
@@ -25,18 +25,18 @@ function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap) {
           <div>${date.getDate()} ${months[date.getMonth()]}</div>
         </div>
         <div class="balance__actions">
-          <select class="select-menu" name="select_id" id="select_id" onchange="onTransactionChange(this.value, '${amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}')">
+          <select class="select-menu" name="select_id" id="select_id" onchange="onTransactionChange(this.value, '${amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}', '${year}')">
               <option value="">שייך תנועה</option>
               ${groups.map(group => `<option value="${group.id}">${group.name}</option>`)}
           </select>
-          <button class="standard-button" onclick="onTransactionChange('${defaultGroup}', '${item.Amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}')">חריגה</button>
+          <button class="standard-button" onclick="onTransactionChange('${defaultGroup}', '${item.Amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}', '${year}')">חריגה</button>
           <button class="standard-button" onclick="document.getElementById('${item._id}').remove()">דלג</button>
         </div>
       </div>
   `
 }
 
-function openSideBar (income, expanses, columnIndex, accountsMap) {
+function openSideBar (income, expanses, columnIndex, accountsMap, year) {
   Logger.log('Open sidebar')
   var htmlOutput = HtmlService
     .createHtmlOutputFromFile('TransactionsSideBar.html')
@@ -48,13 +48,13 @@ function openSideBar (income, expanses, columnIndex, accountsMap) {
     htmlOutput.append('<h2>הכנסות חריגות</h2>');
     const incomGroups = groups.filter(item => item.type === 'הכנסה');
     (income || []).forEach(item => {
-      htmlOutput.append(itemTemplate(item, DEFAULT_GROUPS.income, incomGroups, columnIndex, accountsMap));
+      htmlOutput.append(itemTemplate(item, DEFAULT_GROUPS.income, incomGroups, columnIndex, accountsMap, year));
     });
 
     htmlOutput.append('<h2>הוצאות חריגות</h2>');
     const expansesGroups = groups.filter(item => item.type !== 'הכנסה' && item.type !== 'הוצאה משתנה');
     (expanses || []).forEach(item => {
-      htmlOutput.append(itemTemplate(item, DEFAULT_GROUPS.expanses, expansesGroups, columnIndex, accountsMap));
+      htmlOutput.append(itemTemplate(item, DEFAULT_GROUPS.expanses, expansesGroups, columnIndex, accountsMap, year));
     });
     
     Logger.log('sidebar html is ready')
@@ -87,15 +87,40 @@ function getCredentials() {
   }
 }
 
-function updateCellFromSideBar(Amount, Description, groupId, columnIndex) {
-  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const activeRange = activeSheet.getRange(4, 1, 100, 1);
+function updateCellFromSideBar(Amount, Description, groupId, columnIndex, year) {
+  const targetSheet = year ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(year.toString()) : SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (!targetSheet) {
+    throw new Error(`לא נמצא גיליון עבור השנה ${year}`);
+  }
+
+  const activeRange = targetSheet.getRange(4, 1, 100, 1);
   const values = activeRange.getValues().map(i => i[0]);
   const rowIndex = values.indexOf(parseInt(groupId)) + 1;
 
   // console.log('groupId', groupId, columnIndex, rowIndex, values)
-  updateCell(activeSheet.getRange(rowIndex + 3, columnIndex), [{ Amount, Description: unescape(Description) }]);
+  updateCell(targetSheet.getRange(rowIndex + 3, columnIndex), [{ Amount, Description: unescape(Description) }]);
   SpreadsheetApp.getActive().toast(`עודכן`);
+}
+
+function findColumnForMonth(sheet, year, month) {
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn < 2) return null;
+  
+  // Row 3 contains the month headers
+  const headerValues = sheet.getRange(3, 2, 1, lastColumn - 1).getValues()[0];
+  
+  for (let i = 0; i < headerValues.length; i++) {
+    const cellValue = headerValues[i];
+    if (cellValue instanceof Date || (typeof cellValue === 'string' && cellValue !== '')) {
+      const date = new Date(cellValue);
+      if (!isNaN(date.getTime())) {
+        if (date.getFullYear() === year && date.getMonth() === month) {
+          return i + 2; // +2 offset (starts at column B)
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function updateCell (range, transactions) {
@@ -126,33 +151,55 @@ async function UpdateByRange() {
 }
 
 
-function updateSheetData(income, expanses, accountsMap) {  
-  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const activeRange = activeSheet.getActiveRange();
-  const row = activeRange.getRow();
-  const columnIndex = activeRange.getColumn();
-  
-  Logger.log(`[update-rows-loop] start, ${JSON.stringify(DEFAULT_GROUPS)}, ${activeRange.getNumRows()}`)
-  new Array(activeRange.getNumRows()).fill(true).forEach((_, index) => {
-    const rowIndex = index + row;
-    const groupId = activeSheet.getRange(rowIndex, 1).getValue();
-    
-    Logger.log(`[update-rows-loop] itteration, ${JSON.stringify({index, rowIndex, groupId})}`)
+function updateSheetData(income, expanses, accountsMap, year, month) {  
+  // If year or month are undefined, try fallback to getDateRange
+  if (year === undefined || month === undefined) {
+    const range = getDateRange();
+    year = range.year;
+    month = range.month;
+  }
 
-    if (groupId.toString() === DEFAULT_GROUPS.income || groupId.toString() === DEFAULT_GROUPS.expanses) {
-      return;
+  const targetSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(year.toString());
+  if (!targetSheet) {
+    SpreadsheetApp.getUi().alert(`שגיאה: לא נמצא גיליון בשם ${year}`);
+    return;
+  }
+
+  const columnIndex = findColumnForMonth(targetSheet, year, month);
+  if (!columnIndex) {
+    SpreadsheetApp.getUi().alert(`שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`);
+    return;
+  }
+
+  const startRow = 4;
+  const lastRow = targetSheet.getLastRow();
+  if (lastRow < startRow) {
+    SpreadsheetApp.getUi().alert(`שגיאה: אין שורות נתונים בגיליון ${year}`);
+    return;
+  }
+
+  Logger.log(`[updateSheetData] Starting update for sheet: ${year}, column: ${columnIndex}, rows: ${startRow} to ${lastRow}`);
+
+  for (let rowIndex = startRow; rowIndex <= lastRow; rowIndex++) {
+    const groupId = targetSheet.getRange(rowIndex, 1).getValue();
+    if (!groupId) continue;
+
+    const groupIdStr = groupId.toString().trim();
+    if (groupIdStr === "" || groupIdStr === DEFAULT_GROUPS.income || groupIdStr === DEFAULT_GROUPS.expanses) {
+      continue;
     }
 
-    const transactions = income[groupId] || expanses[groupId];
-    const range = activeSheet.getRange(rowIndex, columnIndex);
+    const transactions = income[groupIdStr] || expanses[groupIdStr];
+    if (transactions && transactions.length) {
+      const range = targetSheet.getRange(rowIndex, columnIndex);
+      updateCell(range, transactions);
+    }
+  }
 
-    updateCell(range, transactions);
-  });
-
-  Logger.log(`[update-rows-loop] end, ${JSON.stringify({income, expanses})}`)
+  Logger.log(`[updateSheetData] End of update loop`);
 
   if (income[DEFAULT_GROUPS.income]?.length || expanses[DEFAULT_GROUPS.expanses]?.length) {
-    openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], columnIndex, accountsMap);
+    openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], columnIndex, accountsMap, year);
   }
 
   SpreadsheetApp.getUi().alert('העדכון הסתיים בהצלחה');

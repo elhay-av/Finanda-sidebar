@@ -141,10 +141,10 @@
     /**
      * Called when a transaction group is selected or a button is clicked
      */
-    function onTransactionChange(value, amount, description, columnIndex, itemId) {
+    function onTransactionChange(value, amount, description, columnIndex, itemId, year) {
       if (!value) return; // ignore empty select
       
-      console.log(`[Transactions] onTransactionChange called: ${value}, ${amount}, ${description}, ${columnIndex}, ${itemId}`);
+      console.log(`[Transactions] onTransactionChange called: ${value}, ${amount}, ${description}, ${columnIndex}, ${itemId}, ${year}`);
       
       const itemEl = document.getElementById(itemId);
       if (itemEl) {
@@ -169,9 +169,9 @@
               if (select) select.value = '';
             }
           })
-          .updateCellFromSideBar(amount, unescape(description), value, columnIndex);
+          .updateCellFromSideBar(amount, unescape(description), value, columnIndex, year);
       } else {
-        console.log(`[Dev] Mocking updateCellFromSideBar(${value}, ${amount}, ${unescape(description)}, ${columnIndex}, ${itemId})`);
+        console.log(`[Dev] Mocking updateCellFromSideBar(${value}, ${amount}, ${unescape(description)}, ${columnIndex}, ${itemId}, ${year})`);
         setTimeout(() => {
           if (itemEl) itemEl.remove();
         }, 600);

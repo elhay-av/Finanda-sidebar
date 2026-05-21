@@ -348,6 +348,37 @@
         height: 48px;
         margin-bottom: 20px;
       }
+
+      /* Dropdowns */
+      .select-menu {
+        width: 100%;
+        max-width: 320px;
+        padding: 12px 14px;
+        border: 1px solid var(--input-border);
+        background-color: var(--input-bg);
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 15px;
+        color: var(--text-main);
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%235b6af8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: left 12px top 50%;
+        background-size: 10px auto;
+        padding-left: 30px;
+        text-align: right;
+        margin-bottom: 15px;
+      }
+
+      .select-menu:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        background-color: #fff;
+        box-shadow: 0 0 0 2px rgba(91, 106, 248, 0.2);
+      }
     </style>
   </head>
 
@@ -672,10 +703,25 @@
         </svg>
       </div>
       <h2>התוסף מחובר בהצלחה!</h2>
-      <div class="mfa-subtitle">
-        כל המערכות מוכנות. לחץ על הכפתור מטה כדי לייבא את נתוני פיננדה לתוך הגיליון שלך.
+      <div class="mfa-subtitle" style="margin-bottom: 25px;">
+        כל המערכות מוכנות. בחר שנה וחודש לייבוא נתוני פיננדה לתוך הגיליון שלך.
       </div>
-      <button class="btn-primary" onclick="startImport()">ייבוא נתונים</button>
+      
+      <div class="input-group">
+        <label for="year-select">בחר שנה:</label>
+        <select id="year-select" class="select-menu" onchange="onYearSelectionChanged()">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label for="month-select">בחר חודש:</label>
+        <select id="month-select" class="select-menu">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <button class="btn-primary" onclick="onImportClicked()" style="margin-top: 15px;">ייבוא נתונים</button>
     </div>
 
     <script>
@@ -805,8 +851,10 @@
                   console.log(
                     "[Sidebar] Apps Script processed data successfully",
                   );
+                  document.getElementById("loading-status").innerText =
+                    "התהליך הושלם בהצלחה!";
                 })
-                .processFinandaData(response.data);
+                .processFinandaData(response.data, selectedYear, selectedMonth);
             } else {
               console.log("[Sidebar] Dev mode: Got data:", response.data);
             }
@@ -883,7 +931,7 @@
                   document.getElementById("loading-status").innerText =
                     "התהליך הושלם בהצלחה!";
                 })
-                .processFinandaData(response.data);
+                .processFinandaData(response.data, selectedYear, selectedMonth);
             } else {
               console.log(
                 "[Sidebar] Dev mode: MFA Success. Got data:",
@@ -972,6 +1020,91 @@
         }
       }
 
+      // Selected Year/Month client state
+      let selectedYear = null;
+      let selectedMonth = null;
+
+      const monthsHebrew = [
+        "ינואר",
+        "פברואר",
+        "מרץ",
+        "אפריל",
+        "מאי",
+        "יוני",
+        "יולי",
+        "אוגוסט",
+        "ספטמבר",
+        "אוקטובר",
+        "נובמבר",
+        "דצמבר"
+      ];
+
+      function initializeDropdowns() {
+        const yearSelect = document.getElementById("year-select");
+        const monthSelect = document.getElementById("month-select");
+        if (!yearSelect || !monthSelect) return;
+
+        const today = new Date();
+        const currentYear = today.getFullYear();
+
+        // 1. Populate Year select
+        yearSelect.innerHTML = `
+          <option value="${currentYear}">${currentYear}</option>
+          <option value="${currentYear - 1}">${currentYear - 1}</option>
+        `;
+
+        // 2. Trigger Month select population based on the default selected year
+        onYearSelectionChanged();
+      }
+
+      function onYearSelectionChanged() {
+        const yearSelect = document.getElementById("year-select");
+        const monthSelect = document.getElementById("month-select");
+        if (!yearSelect || !monthSelect) return;
+
+        const yearVal = parseInt(yearSelect.value);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonthVal = today.getMonth(); // 0-indexed
+
+        monthSelect.innerHTML = "";
+
+        if (yearVal === currentYear) {
+          // Only current month and previous month of current year are accepted
+          const optCurrent = document.createElement("option");
+          optCurrent.value = currentMonthVal;
+          optCurrent.textContent = monthsHebrew[currentMonthVal];
+          monthSelect.appendChild(optCurrent);
+
+          if (currentMonthVal > 0) {
+            const optPrev = document.createElement("option");
+            optPrev.value = currentMonthVal - 1;
+            optPrev.textContent = monthsHebrew[currentMonthVal - 1];
+            monthSelect.appendChild(optPrev);
+          }
+        } else {
+          // Allow all 12 months for the previous year
+          for (let m = 0; m < 12; m++) {
+            const opt = document.createElement("option");
+            opt.value = m;
+            opt.textContent = monthsHebrew[m];
+            monthSelect.appendChild(opt);
+          }
+        }
+      }
+
+      function onImportClicked() {
+        const yearSelect = document.getElementById("year-select");
+        const monthSelect = document.getElementById("month-select");
+        if (!yearSelect || !monthSelect) return;
+
+        selectedYear = parseInt(yearSelect.value);
+        selectedMonth = parseInt(monthSelect.value);
+
+        console.log(`[Sidebar] User triggered import for Year: ${selectedYear}, Month: ${selectedMonth + 1}`);
+        startImport();
+      }
+
       function startImport() {
         console.log("[Sidebar] Starting import process...");
         showView("loading-view");
@@ -983,6 +1116,7 @@
       // Initialize
       document.addEventListener("DOMContentLoaded", async () => {
         console.log("[Sidebar] DOMContentLoaded initialized");
+        initializeDropdowns();
 
         // Hide dev controls in production
         document.getElementById("dev-controls").style.display = "none";

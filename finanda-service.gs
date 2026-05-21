@@ -252,22 +252,26 @@ function getDateRange() {
 
   return {year: selectedDate.getFullYear(), month: selectedDate.getMonth()};
 }
-function processFinandaData(data) {
-	const {year, month} = getDateRange();
+function processFinandaData(data, year, month) {
+  if (year === undefined || month === undefined) {
+    const range = getDateRange();
+    year = range.year;
+    month = range.month;
+  }
 
-	const monthString = `${year}-${(month + 1).toString().padStart(2, '0')}`;
-	const monthlyTransactions = filterThisMonth(data, monthString);
-	const transactionsWithDebit = filterTransactionsWithoutDebit(monthlyTransactions);
-	const transactionsByType = splitByType(transactionsWithDebit);
+  const monthString = `${year}-${(month + 1).toString().padStart(2, '0')}`;
+  const monthlyTransactions = filterThisMonth(data, monthString);
+  const transactionsWithDebit = filterTransactionsWithoutDebit(monthlyTransactions);
+  const transactionsByType = splitByType(transactionsWithDebit);
   
-	const expanses = groupByBalanceCategory(transactionsByType.expanses, DEFAULT_GROUPS.expanses)
-	const income = groupByBalanceCategory(transactionsByType.income, DEFAULT_GROUPS.income);
+  const expanses = groupByBalanceCategory(transactionsByType.expanses, DEFAULT_GROUPS.expanses)
+  const income = groupByBalanceCategory(transactionsByType.income, DEFAULT_GROUPS.income);
 
   const accountsMap = data?.accounts?.CheckingAccounts.reduce((acc, account) => {
     acc[account.AccountNum] = account.AccountDesc;
     return acc;
   }, {});
 
-	// TODO: (Elhay) Find מידע על תשלומים כמו ״בר מים״
-	updateSheetData(income, expanses, accountsMap);
+  // TODO: (Elhay) Find מידע על תשלומים כמו ״בר מים״
+  updateSheetData(income, expanses, accountsMap, year, month);
 }
