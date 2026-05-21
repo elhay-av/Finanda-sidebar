@@ -165,11 +165,14 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     return;
   }
 
-  const columnIndex = findColumnForMonth(targetSheet, year, month);
-  if (!columnIndex) {
+  const baseColumnIndex = findColumnForMonth(targetSheet, year, month);
+  if (!baseColumnIndex) {
     SpreadsheetApp.getUi().alert(`שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`);
     return;
   }
+
+  // The actual values column is the second column of the month's pair (baseColumnIndex + 1)
+  const actualColumnIndex = baseColumnIndex + 1;
 
   const startRow = 4;
   const lastRow = targetSheet.getLastRow();
@@ -178,7 +181,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     return;
   }
 
-  Logger.log(`[updateSheetData] Starting update for sheet: ${year}, column: ${columnIndex}, rows: ${startRow} to ${lastRow}`);
+  Logger.log(`[updateSheetData] Starting update for sheet: ${year}, column: ${actualColumnIndex}, rows: ${startRow} to ${lastRow}`);
 
   for (let rowIndex = startRow; rowIndex <= lastRow; rowIndex++) {
     const groupId = targetSheet.getRange(rowIndex, 1).getValue();
@@ -191,7 +194,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
 
     const transactions = income[groupIdStr] || expanses[groupIdStr];
     if (transactions && transactions.length) {
-      const range = targetSheet.getRange(rowIndex, columnIndex);
+      const range = targetSheet.getRange(rowIndex, actualColumnIndex);
       updateCell(range, transactions);
     }
   }
@@ -199,7 +202,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
   Logger.log(`[updateSheetData] End of update loop`);
 
   if (income[DEFAULT_GROUPS.income]?.length || expanses[DEFAULT_GROUPS.expanses]?.length) {
-    openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], columnIndex, accountsMap, year);
+    openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], actualColumnIndex, accountsMap, year);
   }
 
   SpreadsheetApp.getUi().alert('העדכון הסתיים בהצלחה');
