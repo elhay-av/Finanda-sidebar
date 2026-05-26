@@ -2,12 +2,38 @@ function doGet(e) {
   return ContentService.createTextOutput("Hello World!");
 }
 
+function onInstall(e) {
+  // This adds the menu items immediately upon installation
+  onOpen(e); 
+}
+
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   
   ui.createMenu('משיכת מידע')
       .addItem('משיכת מידע', 'UpdateByRange')
       .addToUi();
+}
+
+// Function to call to programmatically create the installable trigger
+function setupTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var triggerExists = false;
+  
+  // Check if it's already there to avoid duplicates
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'openFinandaSideBar') {
+      triggerExists = true;
+      break;
+    }
+  }
+  
+  if (!triggerExists) {
+    ScriptApp.newTrigger('openFinandaSideBar')
+      .forSpreadsheet(SpreadsheetApp.getActive())
+      .onOpen()
+      .create();
+  }
 }
 
 function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap, year) {
