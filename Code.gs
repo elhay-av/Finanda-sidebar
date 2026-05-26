@@ -15,27 +15,6 @@ function onOpen() {
       .addToUi();
 }
 
-// Function to call to programmatically create the installable trigger
-function setupTrigger() {
-  var triggers = ScriptApp.getProjectTriggers();
-  var triggerExists = false;
-  
-  // Check if it's already there to avoid duplicates
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'openFinandaSideBar') {
-      triggerExists = true;
-      break;
-    }
-  }
-  
-  if (!triggerExists) {
-    ScriptApp.newTrigger('openFinandaSideBar')
-      .forSpreadsheet(SpreadsheetApp.getActive())
-      .onOpen()
-      .create();
-  }
-}
-
 function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap, year) {
   const amount = Math.abs(item.Amount);
   const date = item.TotalPayments ? new Date(item.TransValueDate) : new Date(item.TransDate);
