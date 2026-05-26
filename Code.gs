@@ -8,8 +8,6 @@ function onOpen() {
   ui.createMenu('משיכת מידע')
       .addItem('משיכת מידע', 'UpdateByRange')
       .addToUi();
-
-  openFinandaSideBar();
 }
 
 function itemTemplate (item, defaultGroup, groups, columnIndex, accountsMap, year) {
