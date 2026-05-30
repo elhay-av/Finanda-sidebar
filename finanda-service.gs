@@ -1,5 +1,5 @@
 function filterThisMonth(data, monthString) {
-  Logger.log(`Month string is ${monthString} : ${data.toString()}`);
+  Logger.log(`Month string is ${monthString}`);
   if (!data?.accounts?.CheckingAccounts?.length) {
     throw new Error("Accounts must be greater than 0");
   }
@@ -120,6 +120,7 @@ function processFinandaData(data, year, month) {
 
   const monthString = `${year}-${(month + 1).toString().padStart(2, "0")}`;
   const monthlyTransactions = filterThisMonth(data, monthString);
+  Logger.log(`Monthly transactions: ${monthlyTransactions.length}`);
   const transactionsWithDebit =
     filterTransactionsWithoutDebit(monthlyTransactions);
   const transactionsByType = splitByType(transactionsWithDebit);
