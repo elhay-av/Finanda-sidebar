@@ -74,13 +74,16 @@ function groupByBalanceCategory (transactions, defaultGroup) {
 	return filteredGroups;
 }
 
-function openFinandaSideBar () {
-  var htmlOutput = HtmlService
-    .createHtmlOutputFromFile('FinandaSideBar.html')
+function openFinandaSideBar (authUrl) {
+  var template = HtmlService.createTemplateFromFile('FinandaSideBar.html');
+  template.authRequired = !!authUrl;
+  template.authUrl = authUrl || '';
+  
+  var htmlOutput = template.evaluate()
     .setWidth(400)
     .setTitle("Elhay's Family budget");
     
-  getProtectedUi().showSidebar(htmlOutput);
+  SpreadsheetApp.getUi().showSidebar(htmlOutput);
 }
 
 function getDateRange() {

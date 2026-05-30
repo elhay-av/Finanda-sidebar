@@ -383,6 +383,8 @@
   </head>
 
   <body>
+    <!-- Initial template authorization state -->
+    <div id="initial-auth-state" style="display: none;" data-required="<?!= authRequired ? 'true' : 'false' ?>" data-url="<?!= authUrl ?>"></div>
     <div id="finanda-bridge-container" style="display: none">
       <input type="hidden" id="finanda-req-input" />
       <button id="finanda-req-btn"></button>
@@ -1214,6 +1216,14 @@
 
         // Hide dev controls in production
         document.getElementById("dev-controls").style.display = "none";
+
+        // Check if server-side already told us auth is required
+        const authStateEl = document.getElementById("initial-auth-state");
+        if (authStateEl && authStateEl.getAttribute("data-required") === "true") {
+          const authUrl = authStateEl.getAttribute("data-url");
+          handleAuthRequired("AUTHORIZATION_REQUIRED: " + authUrl);
+          return;
+        }
 
         // Start by showing the welcome view
         showView("welcome-view");
