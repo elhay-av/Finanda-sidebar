@@ -2,8 +2,7 @@
  * @OnlyCurrentDoc
  */
 
-const SPREADSHEETS_SCOPE =
-  "https://www.googleapis.com/auth/spreadsheets.currentonly";
+const SPREADSHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.currentonly';
 
 /**
  * Checks if the user has granted the required authorization scope.
@@ -11,26 +10,10 @@ const SPREADSHEETS_SCOPE =
  */
 function checkAuthorization() {
   try {
-    const authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, [
-      SPREADSHEETS_SCOPE,
-    ]);
-    if (
-      authInfo.getAuthorizationStatus() ===
-      ScriptApp.AuthorizationStatus.REQUIRED
-    ) {
+    const authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, [SPREADSHEETS_SCOPE]);
+    if (authInfo.getAuthorizationStatus() === ScriptApp.AuthorizationStatus.REQUIRED) {
       const authUrl = authInfo.getAuthorizationUrl();
       Logger.log("Authorization REQUIRED. URL: " + authUrl);
-
-      // Trigger sidebar with auth view immediately
-      try {
-        openFinandaSideBar(authUrl);
-      } catch (sidebarError) {
-        Logger.log(
-          "Failed to open sidebar from checkAuthorization: " +
-            sidebarError.message,
-        );
-      }
-
       throw new Error("AUTHORIZATION_REQUIRED: " + authUrl);
     }
   } catch (e) {
