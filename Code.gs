@@ -61,14 +61,14 @@ function openSideBar (income, expanses, columnIndex, accountsMap, year) {
     });
     
     Logger.log('sidebar html is ready')
-  SpreadsheetApp.getUi().showSidebar(htmlOutput);
+  getProtectedUi().showSidebar(htmlOutput);
 }
 
 function showExpansesFormDialog() {
   var html = HtmlService.createHtmlOutput('<iframe height="100%" width="100%" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vRunJmjpGvKAZnQQdKhP9T9Wn4hvnhd2DkLJDQAbB68aQSlwT3KnP3bg-nqFVCdDXR_pfCNHPK7mSB_/pubhtml?gid=818273642&amp;single=true&amp;widget=true&amp;headers=false"></iframe>')
       .setWidth(400)
       .setHeight(600);
-  SpreadsheetApp.getUi()
+  getProtectedUi()
       .showModalDialog(html, 'הוצאות חריגות');
 }
 
@@ -79,6 +79,7 @@ function showExpansesFormDialog() {
  * @returns {Object} An object containing the user and pass
  */
 function getCredentials() {
+  checkAuthorization();
   try {
     return {
       user: getFinandaUser(),
@@ -86,12 +87,16 @@ function getCredentials() {
     };
   } catch (error) {
     Logger.log("Failed to retrieve credentials:", error);
-    throw new Error("Unable to retrieve Finanda credentials.");
+    if (error.message && error.message.includes("AUTHORIZATION_REQUIRED")) {
+      throw error;
+    }
+    throw new Error("Unable to retrieve Finanda credentials: " + error.message);
   }
 }
 
 function updateCellFromSideBar(Amount, Description, groupId, columnIndex, year) {
-  const targetSheet = year ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(year.toString()) : SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  checkAuthorization();
+  const targetSheet = year ? getProtectedActiveSpreadsheet().getSheetByName(year.toString()) : getProtectedActiveSpreadsheet().getActiveSheet();
   if (!targetSheet) {
     throw new Error(`לא נמצא גיליון עבור השנה ${year}`);
   }
@@ -102,7 +107,7 @@ function updateCellFromSideBar(Amount, Description, groupId, columnIndex, year) 
 
   // console.log('groupId', groupId, columnIndex, rowIndex, values)
   updateCell(targetSheet.getRange(rowIndex + 3, columnIndex), [{ Amount, Description: unescape(Description) }]);
-  SpreadsheetApp.getActive().toast(`עודכן`);
+  getProtectedActive().toast(`עודכן`);
 }
 
 function findColumnForMonth(sheet, year, month) {
@@ -162,9 +167,9 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     month = range.month;
   }
 
-  const targetSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(year.toString());
+  const targetSheet = getProtectedActiveSpreadsheet().getSheetByName(year.toString());
   if (!targetSheet) {
-    SpreadsheetApp.getUi().alert(`שגיאה: לא נמצא גיליון בשם ${year}`);
+    getProtectedUi().alert(`שגיאה: לא נמצא גיליון בשם ${year}`);
     return;
   }
 
@@ -173,7 +178,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
 
   const baseColumnIndex = findColumnForMonth(targetSheet, year, month);
   if (!baseColumnIndex) {
-    SpreadsheetApp.getUi().alert(`שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`);
+    getProtectedUi().alert(`שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`);
     return;
   }
 
@@ -183,7 +188,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
   const startRow = 4;
   const lastRow = targetSheet.getLastRow();
   if (lastRow < startRow) {
-    SpreadsheetApp.getUi().alert(`שגיאה: אין שורות נתונים בגיליון ${year}`);
+    getProtectedUi().alert(`שגיאה: אין שורות נתונים בגיליון ${year}`);
     return;
   }
 
@@ -211,7 +216,7 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     openSideBar(income[DEFAULT_GROUPS.income], expanses[DEFAULT_GROUPS.expanses], actualColumnIndex, accountsMap, year);
   }
 
-  SpreadsheetApp.getUi().alert('העדכון הסתיים בהצלחה');
+  getProtectedUi().alert('העדכון הסתיים בהצלחה');
 }
 
 const months = [

@@ -80,11 +80,11 @@ function openFinandaSideBar () {
     .setWidth(400)
     .setTitle("Elhay's Family budget");
     
-  SpreadsheetApp.getUi().showSidebar(htmlOutput);
+  getProtectedUi().showSidebar(htmlOutput);
 }
 
 function getDateRange() {
-  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const activeSheet = getProtectedActiveSpreadsheet().getActiveSheet();
 
   const activeRange = activeSheet.getActiveRange();
   const columnIndex = activeRange.getColumn();
@@ -98,6 +98,7 @@ function getDateRange() {
 }
 
 function processFinandaData(data, year, month) {
+  checkAuthorization();
   if (year === undefined || month === undefined) {
     const range = getDateRange();
     year = range.year;

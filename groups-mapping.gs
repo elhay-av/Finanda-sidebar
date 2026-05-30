@@ -7,7 +7,7 @@ function getGrouppingDataRange() {
     return grouppingData;
   }
 
-  const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GROUPS_SHEET_NAME);
+  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(GROUPS_SHEET_NAME);
   ranges = settingsSheet.getNamedRanges().reduce((acc, range) => {
     acc[range.getName()] = range.getRange().getValues();
     return acc;
@@ -23,7 +23,7 @@ const DEFAULT_GROUPS = {
 };
 
 function getGroups () {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('מאזן')
+  const sheet = getProtectedActiveSpreadsheet().getSheetByName('מאזן')
   const range = sheet.getRange(6, 1, 50, 4);
   const values = range.getValues();
 

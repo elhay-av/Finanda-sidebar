@@ -160,7 +160,15 @@
           })
           .withFailureHandler((error) => {
             console.error('[Transactions] Error updating cell:', error);
-            alert('שגיאה בעדכון הפעולה: ' + error);
+            const errorMsg = (error && error.message) ? error.message : (typeof error === 'string' ? error : '');
+            if (errorMsg && errorMsg.includes("AUTHORIZATION_REQUIRED")) {
+              const parts = errorMsg.split("AUTHORIZATION_REQUIRED: ");
+              const authUrl = parts.length > 1 ? parts[1] : "#";
+              alert('נדרש אישור הרשאות גישה לגיליון. נא ללחוץ על אישור בדף הבא שייפתח.');
+              window.open(authUrl, '_blank');
+            } else {
+              alert('שגיאה בעדכון הפעולה: ' + error);
+            }
             if (itemEl) {
               itemEl.style.opacity = '1';
               itemEl.style.pointerEvents = 'auto';

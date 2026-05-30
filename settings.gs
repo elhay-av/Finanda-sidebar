@@ -10,7 +10,7 @@ function getSettings() {
     return settings;
   }
 
-  const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
+  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
   settings = settingsSheet.getNamedRanges().reduce((acc, range) => {
     acc[range.getName()] = range.getRange().getValues();
     return acc;
@@ -19,7 +19,7 @@ function getSettings() {
 }
 
 function setSettingsRangeValue(rangeName, value) {
-  const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
+  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
   settingsSheet.getNamedRanges().forEach((range) => {
     if (range.getName() === rangeName) {
       range.getRange().setValue(value);

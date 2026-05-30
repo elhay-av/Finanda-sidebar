@@ -598,6 +598,54 @@
 
       <button class="btn-primary" onclick="submitVerification()">המשך</button>
     </div>
+
+    <!-- Authorization Required View -->
+    <div id="auth-view" class="view">
+      <h2>נדרשת הרשאה</h2>
+      <div class="mfa-subtitle">
+        כדי שנוכל לעדכן את הגיליון הנוכחי ולשמור את ההגדרות שלך, עליך לאשר את הרשאות הגישה עבור התוסף.
+      </div>
+
+      <div style="margin: 40px 0; color: var(--primary-color)">
+        <svg
+          viewBox="0 0 24 24"
+          width="72"
+          height="72"
+          stroke="currentColor"
+          stroke-width="1.5"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+
+      <a
+        id="auth-url-btn"
+        href="#"
+        target="_blank"
+        class="btn-primary"
+        style="
+          display: inline-block;
+          text-decoration: none;
+          box-sizing: border-box;
+          line-height: 48px;
+          text-align: center;
+        "
+        >אשר גישה לגיליון</a
+      >
+
+      <button class="btn-secondary" onclick="recheckAuthorization()">בדוק שוב</button>
+
+      <div
+        style="margin-top: 15px; font-size: 13px; color: var(--text-secondary)"
+      >
+        לאחר אישור הגישה, לחץ על 'בדוק שוב' כדי להמשיך.
+      </div>
+    </div>
+
     <!-- Install Extension View -->
     <div id="install-view" class="view">
       <h2>תוסף חסר</h2>
@@ -854,6 +902,16 @@
                   document.getElementById("loading-status").innerText =
                     "התהליך הושלם בהצלחה!";
                 })
+                .withFailureHandler((error) => {
+                  console.error("[Sidebar] Failed to process Finanda data:", error);
+                  const errorMsg = (error && error.message) ? error.message : (typeof error === 'string' ? error : '');
+                  if (errorMsg && errorMsg.includes("AUTHORIZATION_REQUIRED")) {
+                    handleAuthRequired(errorMsg);
+                    return;
+                  }
+                  document.getElementById("loading-status").innerText =
+                    "שגיאה בעיבוד הנתונים.";
+                })
                 .processFinandaData(response.data, selectedYear, selectedMonth);
             } else {
               console.log("[Sidebar] Dev mode: Got data:", response.data);
@@ -931,6 +989,16 @@
                   document.getElementById("loading-status").innerText =
                     "התהליך הושלם בהצלחה!";
                 })
+                .withFailureHandler((error) => {
+                  console.error("[Sidebar] Failed to process MFA Finanda data:", error);
+                  const errorMsg = (error && error.message) ? error.message : (typeof error === 'string' ? error : '');
+                  if (errorMsg && errorMsg.includes("AUTHORIZATION_REQUIRED")) {
+                    handleAuthRequired(errorMsg);
+                    return;
+                  }
+                  document.getElementById("loading-status").innerText =
+                    "שגיאה בעיבוד נתוני אימות.";
+                })
                 .processFinandaData(response.data, selectedYear, selectedMonth);
             } else {
               console.log(
@@ -989,6 +1057,11 @@
                 "[Sidebar] Failed to get credentials from Apps Script:",
                 error,
               );
+              const errorMsg = (error && error.message) ? error.message : (typeof error === 'string' ? error : '');
+              if (errorMsg && errorMsg.includes("AUTHORIZATION_REQUIRED")) {
+                handleAuthRequired(errorMsg);
+                return;
+              }
               document.getElementById("loading-status").innerText =
                 "שגיאה בטעינת פרטי משתמש.";
             })
@@ -1002,6 +1075,26 @@
             "סביבת פיתוח - התחברות מושהית.";
           document.getElementById("dev-controls").style.display = "block";
         }
+      }
+
+      function handleAuthRequired(errorMsg) {
+        console.log("[Sidebar] Authorization is required:", errorMsg);
+        const parts = errorMsg.split("AUTHORIZATION_REQUIRED: ");
+        const authUrl = parts.length > 1 ? parts[1] : "#";
+        
+        const authUrlBtn = document.getElementById("auth-url-btn");
+        if (authUrlBtn) {
+          authUrlBtn.href = authUrl;
+        }
+        
+        showView("auth-view");
+      }
+
+      function recheckAuthorization() {
+        console.log("[Sidebar] Rechecking authorization...");
+        showView("welcome-view");
+        document.getElementById("welcome-status").innerText = "בודק שוב את הרשאות הגישה...";
+        fetchCredentialsAndLogin();
       }
 
       async function recheckExtension() {
