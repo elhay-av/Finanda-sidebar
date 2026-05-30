@@ -67,8 +67,13 @@ function groupByBalanceCategory(transactions, defaultGroup) {
         }
       })?.group;
     }
-    // console.log('PUSH', selectedGroup || defaultGroup, acc[selectedGroup || defaultGroup])
-    acc[selectedGroup || defaultGroup].push(item);
+    const groupKey = selectedGroup || defaultGroup;
+    if (!acc[groupKey]) {
+      Logger.log(`Warning: groupKey '${groupKey}' not found in acc. Item category: ${item.category}`);
+      acc[groupKey] = [];
+    }
+    // console.log('PUSH', groupKey, acc[groupKey])
+    acc[groupKey].push(item);
     return acc;
   }, getEmptyGroups());
 
