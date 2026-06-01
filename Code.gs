@@ -13,21 +13,24 @@ function onInstall(e) {
     // Get user email for suggested name
     const email = Session.getActiveUser().getEmail();
     const username = email ? email.split('@')[0] : 'User_name';
-    const suggestedName = username + ' תקציב';
+    const firstLetter = username.charAt(0);
+    const capitalizedName = username.replace(firstLetter, firstLetter.toLocaleUpperCase());
+    const suggestedName = capitalizedName + ' תקציב';
 
     // 1. Ask user to change sheet name
-    const responseName = ui.prompt(
-      'הגדרת שם גיליון',
-      'אנא בחר שם לגיליון התקציב שלך:\n(ברירת מחדל: ' + suggestedName + ')',
-      ui.ButtonSet.OK_CANCEL
-    );
+    // const responseName = ui.prompt(
+    //   'הגדרת שם גיליון',
+    //   'אנא בחר שם לגיליון התקציב שלך:\n(ברירת מחדל: ' + suggestedName + ')',
+    //   ui.ButtonSet.OK
+    // );
 
-    if (responseName.getSelectedButton() == ui.Button.OK) {
-      const newName = responseName.getResponseText() || suggestedName;
-      spreadsheet.rename(newName);
-    } else {
-      spreadsheet.rename(suggestedName);
-    }
+    // if (responseName.getSelectedButton() == ui.Button.OK) {
+    //   const newName = responseName.getResponseText() || suggestedName;
+    //   spreadsheet.rename(newName);
+    // } else {
+    //   spreadsheet.rename(suggestedName);
+    // }
+    spreadsheet.rename(suggestedName);
 
     // Finanda user and pass check moved to sidebar
 
