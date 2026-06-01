@@ -5,6 +5,35 @@ function doGet(e) {
 function onInstall(e) {
   // This adds the menu items immediately upon installation
   onOpen(e);
+
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Get user email for suggested name
+    const email = Session.getActiveUser().getEmail();
+    const username = email ? email.split('@')[0] : 'User_name';
+    const suggestedName = username + ' תקציב';
+
+    // 1. Ask user to change sheet name
+    const responseName = ui.prompt(
+      'הגדרת שם גיליון',
+      'אנא בחר שם לגיליון התקציב שלך:\n(ברירת מחדל: ' + suggestedName + ')',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (responseName.getSelectedButton() == ui.Button.OK) {
+      const newName = responseName.getResponseText() || suggestedName;
+      spreadsheet.rename(newName);
+    } else {
+      spreadsheet.rename(suggestedName);
+    }
+
+    // Finanda user and pass check moved to sidebar
+
+  } catch (err) {
+    Logger.log('Error during onboarding: ' + err.message);
+  }
 }
 
 function onOpen() {
@@ -215,11 +244,8 @@ async function UpdateByRange() {
 }
 
 function updateSheetData(income, expanses, accountsMap, year, month) {
-  // If year or month are undefined, try fallback to getDateRange
-  if (year === undefined || month === undefined) {
-    const range = getDateRange();
-    year = range.year;
-    month = range.month;
+  if (year == null || month == null) {
+    throw new Error("שגיאה בעיבוד הנתונים - שנה או חודש חסרים");
   }
 
   const targetSheet = getProtectedActiveSpreadsheet().getSheetByName(

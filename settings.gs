@@ -1,6 +1,6 @@
-const SETTINGS_SHEET_NAME = 'settings'
+const SETTINGS_SHEET_NAME = "settings";
 
-const MINUTE = 1000*60;
+const MINUTE = 1000 * 60;
 const MAX_SESSION_DURATION = MINUTE * 5;
 
 let settings = null;
@@ -10,7 +10,8 @@ function getSettings() {
     return settings;
   }
 
-  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
+  const settingsSheet =
+    getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
   settings = settingsSheet.getNamedRanges().reduce((acc, range) => {
     acc[range.getName()] = range.getRange().getValues();
     return acc;
@@ -19,38 +20,44 @@ function getSettings() {
 }
 
 function setSettingsRangeValue(rangeName, value) {
-  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
+  const settingsSheet =
+    getProtectedActiveSpreadsheet().getSheetByName(SETTINGS_SHEET_NAME);
   settingsSheet.getNamedRanges().forEach((range) => {
     if (range.getName() === rangeName) {
       range.getRange().setValue(value);
     }
-  })
+  });
 }
 
-function getFinandaPassword () {
-  return getSettings()['FinandaPassword'][0][0];
+function getFinandaPassword() {
+  return getSettings()["FinandaPassword"][0][0];
 }
 
-function getFinandaUser () {
-  return getSettings()['FinandaUser'][0][0];
+function getFinandaUser() {
+  return getSettings()["FinandaUser"][0][0];
 }
 
-function getFinandaSession () {
-  const session = getSettings()['FinandaSession'][0][0];
-  const sessionTime = getSettings()['FinandaSessionTime'][0][0];
+function getFinandaSession() {
+  const session = getSettings()["FinandaSession"][0][0];
+  const sessionTime = getSettings()["FinandaSessionTime"][0][0];
 
   if (!session) {
-    return '';
+    return "";
   }
 
   if (new Date().getTime() - parseInt(sessionTime) < MAX_SESSION_DURATION) {
     return session;
   }
 
-  return '';
+  return "";
 }
 
-function setFinandaSession (session) {
-  setSettingsRangeValue('FinandaSession', session);
-  setSettingsRangeValue('FinandaSessionTime', new Date().getTime());
+function setFinandaSession(session) {
+  setSettingsRangeValue("FinandaSession", session);
+  setSettingsRangeValue("FinandaSessionTime", new Date().getTime());
+}
+
+function saveCredentials(user, pass) {
+  if (user) setSettingsRangeValue("FinandaUser", user);
+  if (pass) setSettingsRangeValue("FinandaPassword", pass);
 }

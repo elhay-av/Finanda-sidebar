@@ -99,28 +99,12 @@ function openFinandaSideBar(authUrl) {
   SpreadsheetApp.getUi().showSidebar(htmlOutput);
 }
 
-function getDateRange() {
-  const activeSheet = getProtectedActiveSpreadsheet().getActiveSheet();
 
-  const activeRange = activeSheet.getActiveRange();
-  const columnIndex = activeRange.getColumn();
-  const row = activeRange.getRow();
-
-  const rangeDateHeader = activeSheet
-    .getRange(row - 1, columnIndex - 1, 1, 1)
-    .getValue();
-  const selectedDate = new Date(rangeDateHeader);
-  Logger.log(`Selected month by range ${rangeDateHeader} ${selectedDate}`);
-
-  return { year: selectedDate.getFullYear(), month: selectedDate.getMonth() };
-}
 
 function processFinandaData(data, year, month) {
   checkAuthorization();
-  if (year === undefined || month === undefined) {
-    const range = getDateRange();
-    year = range.year;
-    month = range.month;
+  if (year == null || month == null) {
+    throw new Error("שגיאה בעיבוד הנתונים - שנה או חודש חסרים");
   }
 
   const monthString = `${year}-${(month + 1).toString().padStart(2, "0")}`;
