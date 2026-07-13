@@ -1,4 +1,4 @@
-const GROUPS_SHEET_NAME = 'settings-groups'
+const GROUPS_SHEET_NAME = "settings-groups";
 
 var grouppingData = null;
 
@@ -7,13 +7,14 @@ function getGrouppingDataRange() {
     return grouppingData;
   }
 
-  const settingsSheet = getProtectedActiveSpreadsheet().getSheetByName(GROUPS_SHEET_NAME);
+  const settingsSheet =
+    getProtectedActiveSpreadsheet().getSheetByName(GROUPS_SHEET_NAME);
   ranges = settingsSheet.getNamedRanges().reduce((acc, range) => {
     acc[range.getName()] = range.getRange().getValues();
     return acc;
   }, {});
 
-  grouppingData = ranges['grouppingData'];
+  grouppingData = ranges["grouppingData"];
   return grouppingData;
 }
 
@@ -22,30 +23,33 @@ const DEFAULT_GROUPS = {
   expanses: "30",
 };
 
-function getGroups () {
-  const sheet = getProtectedActiveSpreadsheet().getSheetByName('מאזן')
-  const range = sheet.getRange(6, 1, 50, 4);
+function getGroups() {
+  const sheet = getProtectedActiveSpreadsheet().getSheetByName("מאזן");
+  const range = sheet.getRange(7, 1, 50, 4);
   const values = range.getValues();
 
   const idColIndex = 0;
+  const subTypeColIndex = 1;
   const typeColIndex = 2;
   const nameColIndex = 3;
 
-  return values.filter(i => i[typeColIndex] !== 'הוצאה משתנה').map((row, index) => {
-    // Logger.log(`Row: ${index + 1} -> groupId: ${row[idColIndex]}, type: ${row[typeColIndex]}, name: ${row[nameColIndex]}`);
-    return {
-      name: row[nameColIndex],
-      type: row[typeColIndex],
-      id: row[idColIndex]
-    }
-  });
+  return values
+    .filter((i) => !["פייבוקס", "מזומן"].includes(i[subTypeColIndex]))
+    .map((row, index) => {
+      // Logger.log(`Row: ${index + 1} -> groupId: ${row[idColIndex]}, type: ${row[typeColIndex]}, name: ${row[nameColIndex]}`);
+      return {
+        name: row[nameColIndex],
+        type: row[typeColIndex],
+        id: row[idColIndex],
+      };
+    });
 }
 
 function getEmptyGroups() {
   return getGroups().reduce((acc, i) => {
     acc[i.id] = [];
     return acc;
-  }, {})
+  }, {});
 }
 
 function getGroupsMapping() {
@@ -54,24 +58,23 @@ function getGroupsMapping() {
     sourceCatId: 0,
     key: 1,
     value: 2,
-    destinationGroup: 3
+    destinationGroup: 3,
   };
 
   const data = getGrouppingDataRange();
   const returnData = data.reduce((acc, row) => {
     const groupId = row[columnIndexes.sourceCatId];
     let newGroup;
-    
+
     if (row[columnIndexes.key]) {
       newGroup = {
-        "key": row[columnIndexes.key],
-        "value": row[columnIndexes.value],
-        "group": row[columnIndexes.destinationGroup] + ''
+        key: row[columnIndexes.key],
+        value: row[columnIndexes.value],
+        group: row[columnIndexes.destinationGroup] + "",
       };
     } else {
-      newGroup = row[columnIndexes.destinationGroup] + '';
+      newGroup = row[columnIndexes.destinationGroup] + "";
     }
-     
 
     if (!groupId) {
       return acc;
@@ -79,8 +82,8 @@ function getGroupsMapping() {
 
     // if group not exist yet
     if (!acc[groupId]) {
-      if (typeof newGroup === 'object') {
-        acc[groupId] = [newGroup];  
+      if (typeof newGroup === "object") {
+        acc[groupId] = [newGroup];
       } else {
         acc[groupId] = newGroup;
       }
