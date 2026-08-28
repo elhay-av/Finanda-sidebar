@@ -18,10 +18,12 @@ function getGrouppingDataRange() {
   return grouppingData;
 }
 
-const DEFAULT_GROUPS = {
-  income: "5",
-  expanses: "30",
-};
+function getDefaultGroups() {
+  return {
+    income: getSettings()["DEFAULT_INCOOME_GROUP_ID"][0][0] + "",
+    expanses: getSettings()["DEFAULT_EXPANSE_GROUP_ID"][0][0] + "",
+  };
+}
 
 function getGroups() {
   const sheet = getProtectedActiveSpreadsheet().getSheetByName("מאזן");

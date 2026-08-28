@@ -96,7 +96,7 @@ function openSideBar(income, expanses, columnIndex, accountsMap, year) {
     htmlOutput.append(
       itemTemplate(
         item,
-        DEFAULT_GROUPS.income,
+        getDefaultGroups().income,
         incomGroups,
         columnIndex,
         accountsMap,
@@ -113,7 +113,7 @@ function openSideBar(income, expanses, columnIndex, accountsMap, year) {
     htmlOutput.append(
       itemTemplate(
         item,
-        DEFAULT_GROUPS.expanses,
+        getDefaultGroups().expanses,
         expansesGroups,
         columnIndex,
         accountsMap,
@@ -291,8 +291,8 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
     const groupIdStr = groupId.toString().trim();
     if (
       groupIdStr === "" ||
-      groupIdStr === DEFAULT_GROUPS.income ||
-      groupIdStr === DEFAULT_GROUPS.expanses
+      groupIdStr === getDefaultGroups().income ||
+      groupIdStr === getDefaultGroups().expanses
     ) {
       continue;
     }
@@ -307,12 +307,12 @@ function updateSheetData(income, expanses, accountsMap, year, month) {
   Logger.log(`[updateSheetData] End of update loop`);
 
   if (
-    income[DEFAULT_GROUPS.income]?.length ||
-    expanses[DEFAULT_GROUPS.expanses]?.length
+    income[getDefaultGroups().income]?.length ||
+    expanses[getDefaultGroups().expanses]?.length
   ) {
     openSideBar(
-      income[DEFAULT_GROUPS.income],
-      expanses[DEFAULT_GROUPS.expanses],
+      income[getDefaultGroups().income],
+      expanses[getDefaultGroups().expanses],
       actualColumnIndex,
       accountsMap,
       year,

@@ -116,11 +116,11 @@ function processFinandaData(data, year, month) {
 
   const expanses = groupByBalanceCategory(
     transactionsByType.expanses,
-    DEFAULT_GROUPS.expanses,
+    getDefaultGroups().expanses,
   );
   const income = groupByBalanceCategory(
     transactionsByType.income,
-    DEFAULT_GROUPS.income,
+    getDefaultGroups().income,
   );
 
   const accountsMap = data?.accounts?.CheckingAccounts.reduce(
