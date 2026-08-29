@@ -9,13 +9,16 @@ function onInstall(e) {
   try {
     const ui = SpreadsheetApp.getUi();
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    
+
     // Get user email for suggested name
     const email = Session.getActiveUser().getEmail();
-    const username = email ? email.split('@')[0] : 'User_name';
+    const username = email ? email.split("@")[0] : "User_name";
     const firstLetter = username.charAt(0);
-    const capitalizedName = username.replace(firstLetter, firstLetter.toLocaleUpperCase());
-    const suggestedName = capitalizedName + ' תקציב';
+    const capitalizedName = username.replace(
+      firstLetter,
+      firstLetter.toLocaleUpperCase(),
+    );
+    const suggestedName = capitalizedName + " תקציב";
 
     // 1. Ask user to change sheet name
     // const responseName = ui.prompt(
@@ -33,9 +36,8 @@ function onInstall(e) {
     spreadsheet.rename(suggestedName);
 
     // Finanda user and pass check moved to sidebar
-
   } catch (err) {
-    Logger.log('Error during onboarding: ' + err.message);
+    Logger.log("Error during onboarding: " + err.message);
   }
 }
 
@@ -106,9 +108,7 @@ function openSideBar(income, expanses, columnIndex, accountsMap, year) {
   });
 
   htmlOutput.append("<h2>הוצאות חריגות</h2>");
-  const expansesGroups = groups.filter(
-    (item) => item.type !== "הכנסה" && item.type !== "הוצאה משתנה",
-  );
+  const expansesGroups = groups.filter((item) => item.type !== "הכנסה");
   (expanses || []).forEach((item) => {
     htmlOutput.append(
       itemTemplate(
