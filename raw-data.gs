@@ -48,6 +48,33 @@ const RAW_DATA_HEADERS = [
 ];
 
 /**
+ * Normalizes any date value or string into a "YYYY-MM" month key.
+ * Handles Google Sheets auto-coerced Date objects, ISO strings, etc.
+ * 
+ * @param {*} val Date object, string, or any cell value
+ * @returns {string} Normalized "YYYY-MM" string or empty string
+ */
+function parseMonthKey(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = (val.getMonth() + 1).toString().padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  const str = String(val).trim();
+  if (/^\d{4}-\d{2}/.test(str)) {
+    return str.substring(0, 7);
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  return str;
+}
+
+/**
  * Safely formats any value for writing into Google Sheets.
  */
 function formatRawCellValue(val) {
@@ -67,6 +94,7 @@ function formatRawCellValue(val) {
 /**
  * Ensures the 'RawData' tab exists in the active spreadsheet.
  * If not, creates it with header row, formats headers, and hides the tab.
+ * Also configures plain text format for identifier and date key columns.
  * 
  * @returns {GoogleAppsScript.Spreadsheet.Sheet} The RawData sheet
  */
@@ -98,6 +126,22 @@ function ensureRawDataTab() {
       Logger.log("Notice: could not verify RawData hidden status: " + e.message);
     }
   }
+
+  // Ensure MonthKey and TransID columns are formatted as Plain Text
+  try {
+    const monthCol = RAW_DATA_HEADERS.indexOf("MonthKey") + 1;
+    const transIdCol = RAW_DATA_HEADERS.indexOf("TransID") + 1;
+    const numRows = Math.max(sheet.getMaxRows(), 100);
+    if (monthCol > 0) {
+      sheet.getRange(1, monthCol, numRows, 1).setNumberFormat("@");
+    }
+    if (transIdCol > 0) {
+      sheet.getRange(1, transIdCol, numRows, 1).setNumberFormat("@");
+    }
+  } catch (fmtErr) {
+    Logger.log("Notice: Could not set plain text format: " + fmtErr.message);
+  }
+
   return sheet;
 }
 
@@ -147,7 +191,7 @@ function appendNewRawTransactions(transactions, monthKey) {
         return transId;
       }
       if (header === "MonthKey") {
-        return monthKey;
+        return "'" + monthKey; // Leading single quote forces literal text in Google Sheets
       }
       if (header === "Category") {
         return "";
@@ -174,8 +218,10 @@ function appendNewRawTransactions(transactions, monthKey) {
 
 /**
  * Retrieves all transactions for a given monthKey from RawData.
+ * Uses robust month matching that handles Date objects, strings,
+ * and falls back to transaction dates (TransDate, TransValueDate).
  * 
- * @param {string} monthKey The year-month string (e.g. "2026-09")
+ * @param {string} monthKey The year-month string (e.g. "2026-08")
  * @returns {Array<Object>} List of records containing row metadata and item fields
  */
 function getRawTransactionsForMonth(monthKey) {
@@ -188,31 +234,61 @@ function getRawTransactionsForMonth(monthKey) {
   const lastCol = sheet.getLastColumn();
   const allValues = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   const headers = allValues[0];
-  const colIndexMap = {};
-  headers.forEach((h, idx) => {
-    colIndexMap[h] = idx;
-  });
 
-  const monthColIdx = colIndexMap["MonthKey"];
-  const categoryColIdx = colIndexMap["Category"];
-  const commentColIdx = colIndexMap["Comment"];
-  const transIdColIdx = colIndexMap["TransID"];
+  let transIdColIdx = -1;
+  let monthColIdx = -1;
+  let categoryColIdx = -1;
+  let commentColIdx = -1;
+
+  // Search backwards to accurately locate the trailing Category/Comment columns
+  for (let i = headers.length - 1; i >= 0; i--) {
+    const h = String(headers[i]).trim().toLowerCase();
+    if (commentColIdx === -1 && h === "comment") {
+      commentColIdx = i;
+    }
+    if (categoryColIdx === -1 && (h === "category" || h === "categorie")) {
+      categoryColIdx = i;
+    }
+    if (monthColIdx === -1 && h === "monthkey") {
+      monthColIdx = i;
+    }
+    if (transIdColIdx === -1 && h === "transid") {
+      transIdColIdx = i;
+    }
+  }
+
+  // Fallbacks if not located by header name
+  if (transIdColIdx === -1) transIdColIdx = 0;
+  if (categoryColIdx === -1) categoryColIdx = headers.length - 2;
+  if (commentColIdx === -1) commentColIdx = headers.length - 1;
+  if (monthColIdx === -1) monthColIdx = headers.length - 3;
 
   const results = [];
   for (let r = 1; r < allValues.length; r++) {
     const rowValues = allValues[r];
+    const item = {};
+    headers.forEach((h, idx) => {
+      item[h] = rowValues[idx];
+    });
+
+    item.Amount = Number(item.Amount) || 0;
+    item.Credit = Number(item.Credit) || 0;
+    item.Debit = Number(item.Debit) || 0;
+    item._id = item.TransID; // Compatibility
+
+    // Check MonthKey with multiple fallbacks
     const rowMonth = rowValues[monthColIdx];
-    if (String(rowMonth).trim() === monthKey) {
-      const item = {};
-      headers.forEach((h, idx) => {
-        item[h] = rowValues[idx];
-      });
+    const parsedRowMonth = parseMonthKey(rowMonth);
+    const transDateMonth = item.TransDate ? parseMonthKey(item.TransDate) : "";
+    const transValueDateMonth = item.TransValueDate ? parseMonthKey(item.TransValueDate) : "";
 
-      item.Amount = Number(item.Amount) || 0;
-      item.Credit = Number(item.Credit) || 0;
-      item.Debit = Number(item.Debit) || 0;
-      item._id = item.TransID; // Compatibility
+    const isMatch =
+      parsedRowMonth === monthKey ||
+      (item.TotalPayments ? transValueDateMonth === monthKey : transDateMonth === monthKey) ||
+      transDateMonth === monthKey ||
+      transValueDateMonth === monthKey;
 
+    if (isMatch) {
       results.push({
         rowIndex: r + 1, // 1-based row index in sheet
         transId: String(rowValues[transIdColIdx] || "").trim(),
@@ -240,11 +316,25 @@ function updateRawDataCategory(transId, category, comment) {
   if (lastRow <= 1) return;
 
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const transIdColIdx = headers.indexOf("TransID") + 1;
-  const categoryColIdx = headers.indexOf("Category") + 1;
-  const commentColIdx = headers.indexOf("Comment") + 1;
+  let transIdColIdx = -1;
+  let categoryColIdx = -1;
+  let commentColIdx = -1;
 
-  if (categoryColIdx === 0) return;
+  for (let i = headers.length - 1; i >= 0; i--) {
+    const h = String(headers[i]).trim().toLowerCase();
+    if (commentColIdx === -1 && h === "comment") {
+      commentColIdx = i + 1;
+    }
+    if (categoryColIdx === -1 && (h === "category" || h === "categorie")) {
+      categoryColIdx = i + 1;
+    }
+    if (transIdColIdx === -1 && h === "transid") {
+      transIdColIdx = i + 1;
+    }
+  }
+
+  if (categoryColIdx === -1) categoryColIdx = headers.length - 1;
+  if (transIdColIdx === -1) transIdColIdx = 1;
 
   const ids = sheet.getRange(2, transIdColIdx, lastRow - 1, 1).getValues();
   const searchId = String(transId).trim();
@@ -273,8 +363,20 @@ function batchUpdateRawDataCategories(updates) {
   if (!updates || !updates.length) return;
   const sheet = ensureRawDataTab();
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const categoryColIdx = headers.indexOf("Category") + 1;
-  const commentColIdx = headers.indexOf("Comment") + 1;
+  let categoryColIdx = -1;
+  let commentColIdx = -1;
+
+  for (let i = headers.length - 1; i >= 0; i--) {
+    const h = String(headers[i]).trim().toLowerCase();
+    if (commentColIdx === -1 && h === "comment") {
+      commentColIdx = i + 1;
+    }
+    if (categoryColIdx === -1 && (h === "category" || h === "categorie")) {
+      categoryColIdx = i + 1;
+    }
+  }
+
+  if (categoryColIdx === -1) categoryColIdx = headers.length - 1;
 
   updates.forEach((up) => {
     if (up.rowIndex) {
