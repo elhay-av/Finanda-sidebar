@@ -109,28 +109,111 @@ function processFinandaData(data, year, month) {
 
   const monthString = `${year}-${(month + 1).toString().padStart(2, "0")}`;
   const monthlyTransactions = filterThisMonth(data, monthString);
-  Logger.log(`Monthly transactions: ${monthlyTransactions.length}`);
+  Logger.log(`Monthly transactions fetched from Finanda: ${monthlyTransactions.length}`);
   const transactionsWithDebit =
     filterTransactionsWithoutDebit(monthlyTransactions);
-  const transactionsByType = splitByType(transactionsWithDebit);
 
-  const expanses = groupByBalanceCategory(
-    transactionsByType.expanses,
-    getDefaultGroups().expanses,
-  );
-  const income = groupByBalanceCategory(
-    transactionsByType.income,
-    getDefaultGroups().income,
+  // 1. Ensure RawData tab exists and append newly pulled transactions (deduplicating by TransID)
+  ensureRawDataTab();
+  const addedCount = appendNewRawTransactions(transactionsWithDebit, monthString);
+  Logger.log(`Appended ${addedCount} new transactions to RawData for ${monthString}`);
+
+  // 2. Read back all transactions for this month from RawData
+  const monthRecords = getRawTransactionsForMonth(monthString);
+  Logger.log(`Total transactions in RawData for ${monthString}: ${monthRecords.length}`);
+
+  // 3. Find uncategorized records (Category is empty)
+  const uncategorizedRecords = monthRecords.filter(
+    (rec) => !rec.category || rec.category.trim() === "",
   );
 
-  const accountsMap = data?.accounts?.CheckingAccounts.reduce(
-    (acc, account) => {
+  Logger.log(`Uncategorized transactions in RawData: ${uncategorizedRecords.length}`);
+
+  const accountsMap =
+    data?.accounts?.CheckingAccounts?.reduce((acc, account) => {
       acc[account.AccountNum] = account.AccountDesc;
       return acc;
-    },
-    {},
-  );
+    }, {}) || {};
 
-  // TODO: (Elhay) Find מידע על תשלומים כמו ״בר מים״
-  updateSheetData(income, expanses, accountsMap, year, month);
+  if (uncategorizedRecords.length === 0) {
+    getProtectedUi().alert("כל הפעולות לחודש זה כבר סווגו בגיליון.");
+    return;
+  }
+
+  // 4. Categorize uncategorized transactions using groups mapping rules
+  const groupsToCategory = getGroupsMapping();
+  const rawUpdates = [];
+  const newlyCategorized = {};
+  const uncategorizedIncome = [];
+  const uncategorizedExpanses = [];
+
+  for (let i = 0; i < uncategorizedRecords.length; i++) {
+    const rec = uncategorizedRecords[i];
+    const item = rec.item;
+
+    const isIncome = item.Credit > 0 || item.Debit < 0;
+
+    // Skip internal transfers
+    if (isIncome && item.CatGroup === "העברות פנימיות") {
+      rawUpdates.push({
+        rowIndex: rec.rowIndex,
+        category: "SKIP",
+        comment: "skipped - internal transfer (העברות פנימיות)",
+      });
+      continue;
+    }
+
+    let selectedGroup = groupsToCategory[item.category];
+    if (selectedGroup === "SKIP") {
+      rawUpdates.push({
+        rowIndex: rec.rowIndex,
+        category: "SKIP",
+        comment: "skipped by group-settings rule",
+      });
+      continue;
+    }
+
+    if (Array.isArray(selectedGroup)) {
+      selectedGroup = selectedGroup.find((condition) => {
+        if (typeof condition.value === "string") {
+          return item[condition.key]?.includes(condition.value);
+        } else {
+          return item[condition.key] === condition.value;
+        }
+      })?.group;
+    }
+
+    if (selectedGroup) {
+      const groupKey = selectedGroup.toString();
+      rawUpdates.push({
+        rowIndex: rec.rowIndex,
+        category: groupKey,
+        comment: "categorized by group-settings",
+      });
+      if (!newlyCategorized[groupKey]) {
+        newlyCategorized[groupKey] = [];
+      }
+      newlyCategorized[groupKey].push(item);
+    } else {
+      // Keep as uncategorized for user to decide in sidebar
+      if (isIncome) {
+        uncategorizedIncome.push(item);
+      } else {
+        uncategorizedExpanses.push(item);
+      }
+    }
+  }
+
+  // 5. Batch update RawData with newly categorized and skipped entries
+  batchUpdateRawDataCategories(rawUpdates);
+
+  // 6. Update the year sheet with newly categorized items and open sidebar for uncategorized
+  updateSheetWithNewTransactions(
+    newlyCategorized,
+    uncategorizedIncome,
+    uncategorizedExpanses,
+    accountsMap,
+    year,
+    month,
+  );
 }

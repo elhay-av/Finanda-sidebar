@@ -60,23 +60,35 @@ function itemTemplate(
     ? new Date(item.TransValueDate)
     : new Date(item.TransDate);
 
+  const transId = String(
+    item.TransID != null ? item.TransID : (item._id != null ? item._id : ""),
+  ).trim();
+  const descEscaped = escape(item.Description || "");
+  const institute =
+    (accountsMap && accountsMap[item.AccountNumber]) ||
+    item.instituteDesc ||
+    "";
+  const displayName = institute
+    ? `${institute} - ${item.Description || ""}`
+    : item.Description || "";
+
   Logger.log(
     `item.Description: ${item.Description}, defaultGroup: ${defaultGroup}, groups: ${groups.length}, columnIndex: ${columnIndex}, year: ${year}`,
   );
   return `
-      <div id="${item._id}" class="balance__item">
+      <div id="${transId}" class="balance__item">
         <div>
-          <b>${accountsMap[item.AccountNumber] || item.instituteDesc} - ${item.Description}</b>
+          <b>${displayName}</b>
           <div>${amount}${item.TransCurrency === "ILS" ? "₪" : "$"}</div>
-          <div>${date.getDate()} ${months[date.getMonth()]}</div>
+          <div>${isNaN(date.getTime()) ? "" : date.getDate() + " " + months[date.getMonth()]}</div>
         </div>
         <div class="balance__actions">
-          <select class="select-menu" name="select_id" id="select_id" onchange="onTransactionChange(this.value, '${amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}', '${year}')">
+          <select class="select-menu" name="select_id" id="select_${transId}" onchange="onTransactionChange(this.value, '${amount}', '${descEscaped}', '${columnIndex}', '${transId}', '${year}')">
               <option value="">שייך תנועה</option>
-              ${groups.map((group) => `<option value="${group.id}">${group.name}</option>`)}
+              ${groups.map((group) => `<option value="${group.id}">${group.name}</option>`).join("")}
           </select>
-          <button class="standard-button" onclick="onTransactionChange('${defaultGroup}', '${item.Amount}', '${escape(item.Description)}', '${columnIndex}', '${item._id}', '${year}')">חריגה</button>
-          <button class="standard-button" onclick="document.getElementById('${item._id}').remove()">דלג</button>
+          <button class="standard-button" onclick="onTransactionChange('${defaultGroup}', '${amount}', '${descEscaped}', '${columnIndex}', '${transId}', '${year}')">חריגה</button>
+          <button class="standard-button" onclick="onTransactionSkip('${transId}')">דלג</button>
         </div>
       </div>
   `;
@@ -92,35 +104,39 @@ function openSideBar(income, expanses, columnIndex, accountsMap, year) {
 
   const groups = getGroups();
 
-  htmlOutput.append("<h2>הכנסות חריגות</h2>");
-  const incomGroups = groups.filter((item) => item.type === "הכנסה");
-  (income || []).forEach((item) => {
-    htmlOutput.append(
-      itemTemplate(
-        item,
-        getDefaultGroups().income,
-        incomGroups,
-        columnIndex,
-        accountsMap,
-        year,
-      ),
-    );
-  });
+  if (income && income.length) {
+    htmlOutput.append("<h2>הכנסות חריגות</h2>");
+    const incomGroups = groups.filter((item) => item.type === "הכנסה");
+    income.forEach((item) => {
+      htmlOutput.append(
+        itemTemplate(
+          item,
+          getDefaultGroups().income,
+          incomGroups,
+          columnIndex,
+          accountsMap,
+          year,
+        ),
+      );
+    });
+  }
 
-  htmlOutput.append("<h2>הוצאות חריגות</h2>");
-  const expansesGroups = groups.filter((item) => item.type !== "הכנסה");
-  (expanses || []).forEach((item) => {
-    htmlOutput.append(
-      itemTemplate(
-        item,
-        getDefaultGroups().expanses,
-        expansesGroups,
-        columnIndex,
-        accountsMap,
-        year,
-      ),
-    );
-  });
+  if (expanses && expanses.length) {
+    htmlOutput.append("<h2>הוצאות חריגות</h2>");
+    const expansesGroups = groups.filter((item) => item.type !== "הכנסה");
+    expanses.forEach((item) => {
+      htmlOutput.append(
+        itemTemplate(
+          item,
+          getDefaultGroups().expanses,
+          expansesGroups,
+          columnIndex,
+          accountsMap,
+          year,
+        ),
+      );
+    });
+  }
 
   Logger.log("sidebar html is ready");
   getProtectedUi().showSidebar(htmlOutput);
@@ -163,6 +179,7 @@ function updateCellFromSideBar(
   groupId,
   columnIndex,
   year,
+  transId,
 ) {
   checkAuthorization();
   const targetSheet = year
@@ -180,7 +197,25 @@ function updateCellFromSideBar(
   updateCell(targetSheet.getRange(rowIndex + 3, columnIndex), [
     { Amount, Description: unescape(Description) },
   ]);
+
+  if (transId) {
+    const isDefault =
+      groupId === getDefaultGroups().income ||
+      groupId === getDefaultGroups().expanses;
+    const comment = isDefault
+      ? "categorized as default group by user"
+      : "categorized by user";
+    updateRawDataCategory(transId, groupId, comment);
+  }
+
   getProtectedActive().toast(`עודכן`);
+}
+
+function skipTransactionFromSideBar(transId) {
+  checkAuthorization();
+  if (!transId) return;
+  updateRawDataCategory(transId, "SKIP", "skipped by user");
+  getProtectedActive().toast(`דולג`);
 }
 
 function findColumnForMonth(sheet, year, month) {
@@ -244,6 +279,90 @@ function updateCell(range, transactions) {
 
 async function UpdateByRange() {
   openFinandaSideBar();
+}
+
+function updateSheetWithNewTransactions(
+  newlyCategorized,
+  uncategorizedIncome,
+  uncategorizedExpanses,
+  accountsMap,
+  year,
+  month,
+) {
+  if (year == null || month == null) {
+    throw new Error("שגיאה בעיבוד הנתונים - שנה או חודש חסרים");
+  }
+
+  const targetSheet = getProtectedActiveSpreadsheet().getSheetByName(
+    year.toString(),
+  );
+  if (!targetSheet) {
+    getProtectedUi().alert(`שגיאה: לא נמצא גיליון בשם ${year}`);
+    return;
+  }
+
+  // Activate the target sheet tab
+  targetSheet.activate();
+
+  const baseColumnIndex = findColumnForMonth(targetSheet, year, month);
+  if (!baseColumnIndex) {
+    getProtectedUi().alert(
+      `שגיאה: לא נמצאה עמודה מתאימה לחודש ${month + 1} בגיליון ${year}`,
+    );
+    return;
+  }
+
+  // The actual values column is the second column of the month's pair (baseColumnIndex + 1)
+  const actualColumnIndex = baseColumnIndex + 1;
+
+  const startRow = 4;
+  const lastRow = targetSheet.getLastRow();
+  if (lastRow >= startRow) {
+    Logger.log(
+      `[updateSheetWithNewTransactions] Starting update for sheet: ${year}, column: ${actualColumnIndex}, rows: ${startRow} to ${lastRow}`,
+    );
+
+    for (let rowIndex = startRow; rowIndex <= lastRow; rowIndex++) {
+      const groupId = targetSheet.getRange(rowIndex, 1).getValue();
+      if (!groupId) continue;
+
+      const groupIdStr = groupId.toString().trim();
+      if (
+        groupIdStr === "" ||
+        groupIdStr === getDefaultGroups().income ||
+        groupIdStr === getDefaultGroups().expanses
+      ) {
+        continue;
+      }
+
+      const transactions = newlyCategorized[groupIdStr];
+      if (transactions && transactions.length) {
+        const range = targetSheet.getRange(rowIndex, actualColumnIndex);
+        updateCell(range, transactions);
+      }
+    }
+  }
+
+  Logger.log(`[updateSheetWithNewTransactions] End of update loop`);
+
+  const hasUncategorized =
+    (uncategorizedIncome && uncategorizedIncome.length > 0) ||
+    (uncategorizedExpanses && uncategorizedExpanses.length > 0);
+
+  if (hasUncategorized) {
+    openSideBar(
+      uncategorizedIncome,
+      uncategorizedExpanses,
+      actualColumnIndex,
+      accountsMap,
+      year,
+    );
+    getProtectedUi().alert(
+      "חלק מהפעולות סווגו אוטומטית. נותרו פעולות שדורשות סיווג בסרגל הצד.",
+    );
+  } else {
+    getProtectedUi().alert("העדכון הסתיים בהצלחה! כל הפעולות סווגו.");
+  }
 }
 
 function updateSheetData(income, expanses, accountsMap, year, month) {

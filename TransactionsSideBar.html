@@ -209,6 +209,7 @@
               value,
               columnIndex,
               year,
+              itemId,
             );
         } else {
           console.log(
@@ -217,6 +218,47 @@
           setTimeout(() => {
             if (itemEl) itemEl.remove();
           }, 600);
+        }
+      }
+
+      /**
+       * Called when user clicks "דלג" (Skip) in the sidebar
+       */
+      function onTransactionSkip(itemId) {
+        if (!itemId) return;
+
+        console.log(`[Transactions] onTransactionSkip called for itemId: ${itemId}`);
+
+        const itemEl = document.getElementById(itemId);
+        if (itemEl) {
+          itemEl.style.opacity = "0.5";
+          itemEl.style.pointerEvents = "none";
+        }
+
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.run
+        ) {
+          google.script.run
+            .withSuccessHandler(() => {
+              console.log("[Transactions] Successfully skipped transaction:", itemId);
+              if (itemEl) itemEl.remove();
+            })
+            .withFailureHandler((error) => {
+              console.error("[Transactions] Error skipping transaction:", error);
+              alert("שגיאה בדילוג על הפעולה: " + error);
+              if (itemEl) {
+                itemEl.style.opacity = "1";
+                itemEl.style.pointerEvents = "auto";
+              }
+            })
+            .skipTransactionFromSideBar(itemId);
+        } else {
+          console.log(`[Dev] Mocking skipTransactionFromSideBar(${itemId})`);
+          setTimeout(() => {
+            if (itemEl) itemEl.remove();
+          }, 400);
         }
       }
     </script>
