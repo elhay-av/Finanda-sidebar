@@ -107,3 +107,54 @@ function getGroupsMapping() {
   // console.log('Groupping data:', JSON.stringify(returnData, null, 2));
   return returnData;
 }
+
+/**
+ * Adds a new auto-categorization rule row to the 'group-settings' sheet.
+ *
+ * Column layout in group-settings:
+ * Col A (1): sourceCatId (item.category or rule.sourceCatId)
+ * Col B (2): key / Search property (rule.searchProperty)
+ * Col C (3): value / Search value (rule.searchValue)
+ * Col D (4): destinationGroup (rule.destinationGroupId or "SKIP" if empty)
+ * Col E (5): Source category / CatDesc (rule.sourceCategory)
+ * Col F (6): Dest category / Table1[תיאור] (rule.destCategoryName or "")
+ * Col G (7): Notes (rule.notes)
+ *
+ * @param {Object} rule The rule configuration from the sidebar modal
+ * @returns {Object} { success: boolean, message: string }
+ */
+function addAutoCategoryRule(rule) {
+  checkAuthorization();
+  if (!rule) {
+    throw new Error("נתוני החוק ריקים");
+  }
+
+  const spreadsheet = getProtectedActiveSpreadsheet();
+  const sheet =
+    spreadsheet.getSheetByName("group-settings") ||
+    spreadsheet.getSheetByName(GROUPS_SHEET_NAME);
+
+  if (!sheet) {
+    throw new Error("גיליון group-settings לא נמצא");
+  }
+
+  const destGroupId =
+    rule.destinationGroupId != null && rule.destinationGroupId !== ""
+      ? rule.destinationGroupId
+      : "SKIP";
+
+  const rowData = [
+    rule.sourceCatId != null ? rule.sourceCatId : "",
+    rule.searchProperty || "",
+    rule.searchValue || "",
+    destGroupId,
+    rule.sourceCategory || "",
+    rule.destCategoryName || "",
+    rule.notes || "",
+  ];
+
+  sheet.appendRow(rowData);
+  getProtectedActive().toast("חוק סיווג חדש נוסף ל-group-settings");
+
+  return { success: true };
+}

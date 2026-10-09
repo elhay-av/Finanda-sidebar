@@ -96,47 +96,25 @@ function itemTemplate(
 
 function openSideBar(income, expanses, columnIndex, accountsMap, year) {
   Logger.log("Open sidebar");
-  var htmlOutput = HtmlService.createHtmlOutputFromFile(
-    "TransactionsSideBar.html",
-  )
-    .setWidth(400)
-    .setTitle("סיכום חלוקת פעולות");
+  var template = HtmlService.createTemplateFromFile("TransactionsSideBar.html");
 
   const groups = getGroups();
+  const defaultGroups = getDefaultGroups();
 
-  if (income && income.length) {
-    htmlOutput.append("<h2>הכנסות חריגות</h2>");
-    const incomGroups = groups.filter((item) => item.type === "הכנסה");
-    income.forEach((item) => {
-      htmlOutput.append(
-        itemTemplate(
-          item,
-          getDefaultGroups().income,
-          incomGroups,
-          columnIndex,
-          accountsMap,
-          year,
-        ),
-      );
-    });
-  }
+  template.initialData = JSON.stringify({
+    income: income || [],
+    expanses: expanses || [],
+    groups: groups || [],
+    defaultGroups: defaultGroups || {},
+    columnIndex: columnIndex,
+    accountsMap: accountsMap || {},
+    year: year,
+  });
 
-  if (expanses && expanses.length) {
-    htmlOutput.append("<h2>הוצאות חריגות</h2>");
-    const expansesGroups = groups.filter((item) => item.type !== "הכנסה");
-    expanses.forEach((item) => {
-      htmlOutput.append(
-        itemTemplate(
-          item,
-          getDefaultGroups().expanses,
-          expansesGroups,
-          columnIndex,
-          accountsMap,
-          year,
-        ),
-      );
-    });
-  }
+  var htmlOutput = template
+    .evaluate()
+    .setWidth(400)
+    .setTitle("סיכום חלוקת פעולות");
 
   Logger.log("sidebar html is ready");
   getProtectedUi().showSidebar(htmlOutput);
