@@ -1,5 +1,4 @@
-function filterThisMonth(data, monthString) {
-  Logger.log(`Month string is ${monthString}`);
+function getAllFetchedTransactions(data) {
   if (!data?.accounts?.CheckingAccounts?.length) {
     throw new Error("Accounts must be greater than 0");
   }
@@ -13,6 +12,12 @@ function filterThisMonth(data, monthString) {
   if (!transactions) {
     throw new Error("allAccounts.Transactions, not found");
   }
+  return transactions;
+}
+
+function filterThisMonth(data, monthString) {
+  Logger.log(`Month string is ${monthString}`);
+  const transactions = getAllFetchedTransactions(data);
   const filteredData = transactions.filter((item) => {
     if (item.TotalPayments) {
       return item.TransValueDate.startsWith(monthString);
@@ -113,10 +118,22 @@ function processFinandaData(data, year, month) {
   const transactionsWithDebit =
     filterTransactionsWithoutDebit(monthlyTransactions);
 
-  // 1. Ensure RawData tab exists and append newly pulled transactions (deduplicating by TransID)
+  // 1. Ensure RawData tab exists and sync newly pulled transactions.
+  //    Dedupes by TransID and reconciles rows Finanda re-issued under a new TransID.
   ensureRawDataTab();
-  const addedCount = appendNewRawTransactions(transactionsWithDebit, monthString);
-  Logger.log(`Appended ${addedCount} new transactions to RawData for ${monthString}`);
+  const allFetched = getAllFetchedTransactions(data);
+  const fetchedIds = new Set(allFetched.map((t) => getRawTransId(t)).filter(Boolean));
+  const fetchedFromDate = allFetched.reduce(
+    (min, t) => (t.TransDate && (!min || t.TransDate < min) ? t.TransDate : min),
+    "",
+  );
+  const syncStats = appendNewRawTransactions(
+    transactionsWithDebit,
+    monthString,
+    fetchedIds,
+    fetchedFromDate,
+  );
+  Logger.log(`RawData sync for ${monthString}: ${JSON.stringify(syncStats)}`);
 
   // 2. Read back all transactions for this month from RawData
   const monthRecords = getRawTransactionsForMonth(monthString);

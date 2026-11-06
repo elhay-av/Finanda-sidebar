@@ -146,74 +146,199 @@ function ensureRawDataTab() {
 }
 
 /**
- * Appends only genuinely new transactions to the RawData tab.
- * Deduplicates based on TransID (or _id fallback).
- * 
- * @param {Array<Object>} transactions List of Finanda transaction objects
- * @param {string} monthKey The year-month string (e.g. "2026-09")
- * @returns {number} Count of new transactions appended
+ * Normalizes a date cell (Date object or "YYYY-MM-DD..." string) to "YYYY-MM-DD".
  */
-function appendNewRawTransactions(transactions, monthKey) {
-  if (!transactions || !transactions.length) {
-    return 0;
+function normalizeDayKey(val, tz) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, tz, "yyyy-MM-dd");
   }
+  return String(val).trim().substring(0, 10);
+}
+
+/**
+ * Builds a fingerprint that identifies "the same real-world transaction"
+ * even when Finanda re-issues it under a new TransID.
+ */
+function rawFingerprint(item, tz, withDescription) {
+  const parts = [
+    String(item.AccID != null ? item.AccID : "").trim(),
+    normalizeDayKey(item.TransDate, tz),
+    (Number(item.Debit) || 0).toFixed(2),
+    (Number(item.Credit) || 0).toFixed(2),
+  ];
+  if (withDescription) {
+    parts.push(String(item.Description != null ? item.Description : "").replace(/\s+/g, " ").trim());
+  }
+  return parts.join("|");
+}
+
+function getRawTransId(item) {
+  return String(
+    item.TransID != null ? item.TransID : item._id != null ? item._id : "",
+  ).trim();
+}
+
+/**
+ * Syncs pulled Finanda transactions into the RawData tab.
+ *
+ * Finanda sometimes replaces a transaction with a new record (new TransID),
+ * e.g. when a card charge is first loaded and later re-loaded as invoiced.
+ * The old record disappears from Finanda, but RawData used to keep it, so the
+ * same expense showed up twice. To fix this, a RawData row for this month whose
+ * TransID is no longer returned by Finanda is treated as "stale" and is matched
+ * (same account, date, debit, credit and preferably description) to its
+ * replacement:
+ *   - replacement is new          -> the stale row is overwritten in place
+ *                                    (Category/Comment are kept)
+ *   - replacement already in sheet -> the stale row's Category/Comment move to it
+ *                                    (if it has none) and the stale row is removed
+ *   - no replacement, uncategorized -> the stale row is removed
+ *   - no replacement, categorized  -> kept, logged (already counted in the year sheet)
+ * Two real identical purchases are never merged, because one side must have
+ * disappeared from Finanda first.
+ *
+ * @param {Array<Object>} transactions Pulled transactions for the month
+ * @param {string} monthKey e.g. "2026-10"
+ * @param {Set<string>} [fetchedIds] All TransIDs Finanda currently returns (all months)
+ * @param {string} [fetchedFromDate] Earliest TransDate Finanda returned ("YYYY-MM-DD")
+ * @returns {{added:number, replaced:number, merged:number, removed:number, flagged:number}}
+ */
+function appendNewRawTransactions(transactions, monthKey, fetchedIds, fetchedFromDate) {
+  const stats = { added: 0, replaced: 0, merged: 0, removed: 0, flagged: 0 };
+  transactions = transactions || [];
   const sheet = ensureRawDataTab();
+  const tz = sheet.getParent().getSpreadsheetTimeZone();
   const lastRow = sheet.getLastRow();
+  const lastCol = Math.max(sheet.getLastColumn(), RAW_DATA_HEADERS.length);
+  const headers = sheet
+    .getRange(1, 1, 1, lastCol)
+    .getValues()[0]
+    .map((h) => String(h).trim());
+  const colOf = (name) => {
+    const idx = headers.indexOf(name);
+    return idx !== -1 ? idx : RAW_DATA_HEADERS.indexOf(name);
+  };
+  const transIdIdx = colOf("TransID");
+  const monthIdx = colOf("MonthKey");
+  const categoryIdx = colOf("Category");
+  const commentIdx = colOf("Comment");
 
-  // Build a Set of existing TransIDs
-  const existingIds = new Set();
-  if (lastRow > 1) {
-    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (let i = 0; i < ids.length; i++) {
-      const val = ids[i][0];
-      if (val !== "" && val !== null && val !== undefined) {
-        existingIds.add(String(val).trim());
-      }
-    }
-  }
-
-  const newRows = [];
-  for (let i = 0; i < transactions.length; i++) {
-    const item = transactions[i];
-    const transId = String(
-      item.TransID != null ? item.TransID : item._id != null ? item._id : "",
-    ).trim();
-
-    if (transId && existingIds.has(transId)) {
-      continue; // Skip existing record
-    }
-    if (transId) {
-      existingIds.add(transId);
-    }
-
-    const row = RAW_DATA_HEADERS.map((header) => {
-      if (header === "TransID") {
-        return transId;
-      }
-      if (header === "MonthKey") {
-        return "'" + monthKey; // Leading single quote forces literal text in Google Sheets
-      }
-      if (header === "Category") {
-        return "";
-      }
-      if (header === "Comment") {
-        return "";
-      }
-      return formatRawCellValue(item[header]);
+  const toRowValues = (item, transId, category, comment) =>
+    headers.map((header, idx) => {
+      if (idx === transIdIdx) return transId;
+      if (idx === monthIdx) return "'" + monthKey; // force literal text
+      if (idx === categoryIdx) return category || "";
+      if (idx === commentIdx) return comment || "";
+      return header ? formatRawCellValue(item[header]) : "";
     });
-    newRows.push(row);
-  }
 
-  if (newRows.length > 0) {
-    sheet
-      .getRange(lastRow + 1, 1, newRows.length, RAW_DATA_HEADERS.length)
-      .setValues(newRows);
-    Logger.log(`[RawData] Appended ${newRows.length} new transactions for ${monthKey}`);
+  // Read existing rows
+  const values = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues() : [];
+  const rows = values.map((rowValues, i) => {
+    const item = {};
+    headers.forEach((h, idx) => {
+      if (h) item[h] = rowValues[idx];
+    });
+    return {
+      rowIndex: i + 2,
+      transId: String(rowValues[transIdIdx] || "").trim(),
+      monthKey: parseMonthKey(rowValues[monthIdx]),
+      category: String(rowValues[categoryIdx] || "").trim(),
+      comment: String(rowValues[commentIdx] || "").trim(),
+      item: item,
+    };
+  });
+  const existingIds = new Set(rows.map((r) => r.transId).filter(Boolean));
+
+  // Genuinely new transactions (by TransID)
+  const newItems = [];
+  transactions.forEach((item) => {
+    const transId = getRawTransId(item);
+    if (transId && existingIds.has(transId)) return;
+    if (transId) existingIds.add(transId);
+    newItems.push({ item: item, transId: transId, claimed: false });
+  });
+
+  // Reconcile stale rows - only when Finanda's data covers the whole month
+  const canReconcile =
+    fetchedIds && fetchedIds.size > 0 && fetchedFromDate && fetchedFromDate <= monthKey + "-01";
+  const rowsToDelete = [];
+  if (canReconcile) {
+    const monthRows = rows.filter((r) => r.monthKey === monthKey && r.transId);
+    const stale = monthRows.filter((r) => !fetchedIds.has(r.transId));
+    const liveRows = monthRows
+      .filter((r) => fetchedIds.has(r.transId))
+      .map((r) => ({ row: r, claimed: false }));
+
+    const findMatch = (pool, getItem, fp, withDesc) =>
+      pool.find((c) => !c.claimed && rawFingerprint(getItem(c), tz, withDesc) === fp);
+
+    stale.forEach((staleRow) => {
+      let newMatch = null;
+      let liveMatch = null;
+      for (const withDesc of [true, false]) {
+        const fp = rawFingerprint(staleRow.item, tz, withDesc);
+        newMatch = findMatch(newItems, (c) => c.item, fp, withDesc);
+        if (newMatch) break;
+        liveMatch = findMatch(liveRows, (c) => c.row.item, fp, withDesc);
+        if (liveMatch) break;
+      }
+
+      if (newMatch) {
+        newMatch.claimed = true;
+        sheet
+          .getRange(staleRow.rowIndex, 1, 1, headers.length)
+          .setValues([toRowValues(newMatch.item, newMatch.transId, staleRow.category, staleRow.comment)]);
+        stats.replaced++;
+        Logger.log(`[RawData] Replaced stale ${staleRow.transId} with ${newMatch.transId} (row ${staleRow.rowIndex})`);
+      } else if (liveMatch) {
+        liveMatch.claimed = true;
+        const live = liveMatch.row;
+        if (!live.category && staleRow.category) {
+          sheet.getRange(live.rowIndex, categoryIdx + 1).setValue(staleRow.category);
+          sheet.getRange(live.rowIndex, commentIdx + 1).setValue(staleRow.comment);
+          rowsToDelete.push(staleRow.rowIndex);
+          stats.merged++;
+          Logger.log(`[RawData] Merged stale ${staleRow.transId} into ${live.transId}, removed row ${staleRow.rowIndex}`);
+        } else if (!staleRow.category) {
+          rowsToDelete.push(staleRow.rowIndex);
+          stats.removed++;
+          Logger.log(`[RawData] Removed uncategorized stale duplicate ${staleRow.transId} of ${live.transId}`);
+        } else {
+          // Both were categorized -> the amount was already counted twice in the year sheet
+          sheet
+            .getRange(staleRow.rowIndex, commentIdx + 1)
+            .setValue(`DUPLICATE of ${live.transId} - fix the year sheet, then delete this row`);
+          stats.flagged++;
+          Logger.log(`[RawData] WARNING: stale ${staleRow.transId} and ${live.transId} are both categorized`);
+        }
+      } else if (!staleRow.category) {
+        rowsToDelete.push(staleRow.rowIndex);
+        stats.removed++;
+        Logger.log(`[RawData] Removed uncategorized row ${staleRow.transId} - no longer exists in Finanda`);
+      } else {
+        Logger.log(`[RawData] Notice: categorized row ${staleRow.transId} no longer exists in Finanda, kept`);
+      }
+    });
   } else {
-    Logger.log(`[RawData] All ${transactions.length} transactions already exist in RawData`);
+    Logger.log(`[RawData] Skipping stale-row reconciliation for ${monthKey} (fetched data does not cover the month)`);
   }
 
-  return newRows.length;
+  // Delete bottom-up so row indexes stay valid
+  rowsToDelete
+    .sort((a, b) => b - a)
+    .forEach((rowIndex) => sheet.deleteRow(rowIndex));
+
+  const toAppend = newItems
+    .filter((c) => !c.claimed)
+    .map((c) => toRowValues(c.item, c.transId, "", ""));
+  if (toAppend.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, headers.length).setValues(toAppend);
+  }
+  stats.added = toAppend.length;
+  Logger.log(`[RawData] Sync ${monthKey}: ${JSON.stringify(stats)}`);
+  return stats;
 }
 
 /**
